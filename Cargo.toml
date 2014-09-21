@@ -5,4 +5,4 @@ version = "0.0.1"
 authors = ["Reisen <reisen@morphism.org>"]
 
 [dependencies.hiredis]
-git = "https://github.com/Reisen/hiredis-rs"
+path = "../hiredis-rs"
