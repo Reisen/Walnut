@@ -9,5 +9,16 @@ fn main() {
     loop {
         redis.receive(&mut reply);
         println!("Num: {}", reply.typename() as uint);
+
+        for v in reply.array().iter() {
+            match v.typename() {
+                hiredis::String => {
+                    println!("Value: {}", v.string());
+                }
+
+                _ => {
+                }
+            }
+        }
     }
 }
