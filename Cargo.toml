@@ -6,3 +6,6 @@ authors = ["Reisen <reisen@morphism.org>"]
 
 [dependencies.hiredis]
 path = "../hiredis-rs"
+
+[dependencies.redis-rs]
+git = "https://github.com/mitsuhiko/redis-rs/"
