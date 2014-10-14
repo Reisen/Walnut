@@ -1,8 +1,22 @@
+#![feature(phase)]
+#![feature(tuple_indexing)]
+#![feature(if_let)]
+#![feature(slicing_syntax)]
+
+
+#[phase(plugin)]
+extern crate regex_macros;
 extern crate hiredis;
+extern crate regex;
 extern crate redis;
+extern crate toml;
+
 
 mod irc;
+mod hooks;
 
+
+#[allow(non_snake_case)]
 fn main() {
     use redis::{
         Client,
@@ -10,77 +24,197 @@ fn main() {
         Value
     };
 
-    // let client = Client::open("redis://127.0.0.1").unwrap();
-    // let conn   = client.get_connection().unwrap();
+    /* Two channels are defined so that messages can be sent backward
+     * and forward between the two threads.
+     */
+    type ChanType = (Sender<(String, String)>, Receiver<(String, String)>);
 
-    // let resp: Value = Cmd::new()
-    //     .arg("PSUBSCRIBE")
-    //     .arg("IRC.*")
-    //     .query(&conn)
-    //     .unwrap();
+    let (sIRC, rIRC): ChanType = channel();
+    let (sRED, rRED): ChanType = channel();
 
-    // loop {
-    //     let result: (String, String, String, String) =
-    //         conn.read_response().unwrap();
 
-    //     println!("Message: {}", result);
-    // }
+    /* We spawn the PubSub thread. This listens for incoming messages
+     * to be piped to IRC and also responds to QRY messages which are
+     * used to send state information to clients.
+     */
+    spawn(proc() {
+        let client = Client::open("redis://127.0.0.1").unwrap();
+        let client = client.get_connection().unwrap();
 
-    // use std::io::timer;
-    // use std::time::duration::Duration;
+        /* PubSub object for receiving messages. */
+        let pubsub   = Client::open("redis://127.0.0.1").unwrap();
+        let mut conn = pubsub.get_pubsub().unwrap();
 
-    // /* Setup the Redis side of things. */
-    // let redis  = hiredis::Redis::new("127.0.0.1", 6379, 5);
-    // let result = redis.command("PSUBSCRIBE IRC.*");
+        /* PubSub channels. */
+        conn.psubscribe("SND.*").unwrap();
+        conn.psubscribe("QRY.*").unwrap();
 
-    /* And setup the IRC side of things. */
-    let mut conns = Vec::new();
-    conns.push(irc::IRC::connect("irc.rizon.net", 6667, "rustnut"));
+        /* Loop forever waiting for Redis messages. */
+        loop {
+            let result  = conn.get_message().unwrap();
+            let channel = result.get_channel_name();
 
-    loop {
-        for conn in conns.mut_iter() {
-            let incoming_data = conn.read_line();
-            println!("Data: {}", incoming_data);
+            /* Respond to bot core queries. */
+            if channel.starts_with("QRY.") {
+                let commands = [
+                    ("WHOAMI", hooks::whoami)
+                ];
+
+                for &(command, hook) in commands.iter() {
+                    if channel.contains(command) {
+                        let response = hook(result.get_payload().unwrap());
+                        Cmd::new()
+                            .arg("PUBLISH")
+                            .arg(format!("RSP.{}", command))
+                            .arg(response[])
+                            .execute(&client);
+                    }
+                }
+            }
+
+            /* Forward 'sent' messages to the IRC thread. */
+            if channel.starts_with("SND.") {
+                sIRC.send((
+                    String::from_str(result.get_channel_name()),
+                    result.get_payload().unwrap()
+                ));
+            }
         }
-    }
+    });
 
-    // /* We create an empty reply object to use for parsing replies. It
-    //  * can be re-used as the receive function will destroy the old reply
-    //  * data before overwriting it.
-    //  *
-    //  * TODO: Check that the data can't leak in the hiredis project.
-    //  */
-    // let mut reply = hiredis::Reply::empty();
+    spawn(proc() {
+        use std::io::File;
+        use std::str::from_utf8;
 
-    // loop {
-    //     /* TODO: Switch to while let once implemented. */
-    //     let rec = redis.receive(&mut reply);
+        let client = Client::open("redis://127.0.0.1").unwrap();
+        let client = client.get_connection().unwrap();
 
-    //     println!("rec: {}", rec);
+        /* We need a mutable collection of open IRC servers as well, which we will
+         * constantly wait on messages on. */
+        let mut conns = Vec::new();
 
-    //     if rec {
-    //         println!("Received");
+        /* Actually need to connect for that matter. */
+        if let Ok(data) = File::open(&Path::new("config.ini")).read_to_end() {
+            let data = toml::Parser::new(from_utf8(data[]).unwrap()).parse();
 
-    //         for v in reply.array().iter() {
-    //             match v.typename() {
-    //                 hiredis::String => {
-    //                     use std::str;
+            if let None = data {
+                println!("Data parsed from config.ini not valid toml.");
+                return;
+            }
 
-    //                     let data = v.string().unwrap();
-    //                     let data = str::from_utf8(data);
+            let data = data.unwrap();
 
-    //                     match data {
-    //                         Some(v) => println!("String: {}", v),
-    //                         None    => {}
-    //                     };
-    //                 }
+            if let toml::Array(ref servers) = data["servers".to_string()] {
+                for server in servers.iter() {
+                    let server = server.as_table().unwrap();
 
-    //                 _ => {
-    //                 }
-    //             }
-    //         }
-    //     }
+                    /* Connect to IRC using the extracted server details. */
+                    let address = server["address".to_string()].as_str().unwrap();
+                    let port    = server["port".to_string()].as_integer().unwrap();
+                    let nick    = server["nick".to_string()].as_str().unwrap();
+                    let pass    = server.find(&"pass".to_string());
+                    let mut con = irc::IRC::connect(address.to_string(), port as u16, nick.to_string());
 
-    //     println!("Tick");
-    // }
+                    /* Password only if given, needs to be done before anything else. */
+                    if let Some(pass) = pass {
+                        con.raw(format!("PASS {}", pass.as_str().unwrap())[]);
+                    }
+
+                    /* User information. */
+                    con.raw(format!("NICK {}", nick)[]);
+                    con.raw(format!("USER {0} {0} {0} :{0}", nick)[]);
+
+                    /* Join all the specified channels. */
+                    for channel in server["channels".to_string()].as_slice().unwrap().iter() {
+                        con.raw(format!("JOIN {}", channel.as_str().unwrap())[]);
+                    }
+
+                    conns.push((address.to_string(), con));
+                }
+            }
+        }
+
+        loop {
+            let mut incoming = Vec::new();
+
+            /* I want `while let` so bad. This will look so much nicer if
+             * I can simply do: while let Ok(v) = rIRC.try_recv() {
+             *
+             * The recommended solution right now is to use an iterator but
+             * lets be honest if I try and iterate here with the current
+             * protocol I'll be blocked forever.
+             */
+            loop {
+                match rIRC.try_recv() {
+                    Ok(v) => {
+                        incoming.push(v);
+                    }
+
+                    Err(_) => {
+                        break;
+                    }
+                }
+            }
+
+            for conn in conns.iter_mut() {
+                let (ref ident, ref mut c) = *conn;
+
+                match c.read_line() {
+                    Some(data) => {
+                        let parser = regex!(r"^(:\S+)?\s*(\S+)\s+(.*)\r?$");
+                        let chars: &[_] = &[' ', '\n', '\r'];
+
+                        /* Parse PREFIX/COMMAND/ARGS from incoming messages to
+                         * forward to Redis. */
+                        match parser.captures(data[].trim_chars(chars)) {
+                            /* v.at(1): PREFIX
+                             * v.at(2): COMMAND
+                             * v.at(3): ARGS
+                             */
+                            Some(v) => {
+                                /* Print the line out for logs. */
+                                print!("<- {}", data);
+
+                                /* Handle PING specially, so we don't die just
+                                 * because the plugin that was meant to be handling
+                                 * this failed.
+                                 */
+                                if v.at(2)[] == "PING" {
+                                    c.raw(format!("PONG {}", v.at(3))[]);
+                                }
+                                else {
+                                    Cmd::new()
+                                        .arg("PUBLISH")
+                                        .arg(format!("RCV.{}:{}", v.at(2), ident))
+                                        .arg(data[])
+                                        .execute(&client);
+                                }
+                            }
+
+                            None => {
+                            }
+                        }
+                    }
+
+                    _ => {
+                    }
+                }
+
+                /* Any Redis messages pushed accross the task boundary need to
+                 * be forwarded to a target server. This is pretty damn straight
+                 * forward and doesn't need much explanation. */
+                incoming = incoming
+                    .into_iter()
+                    .filter_map(|v| {
+                        if v.0[].contains(ident[]) {
+                            c.raw(v.1[]);
+                            None
+                        } else {
+                            Some(v)
+                        }
+                    })
+                    .collect();
+            }
+        }
+    });
 }
