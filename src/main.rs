@@ -2,6 +2,7 @@
 #![feature(tuple_indexing)]
 #![feature(if_let)]
 #![feature(slicing_syntax)]
+#![feature(macro_rules)]
 
 
 #[phase(plugin)]
@@ -14,6 +15,7 @@ extern crate toml;
 
 mod irc;
 mod hooks;
+mod config;
 
 
 #[allow(non_snake_case)]
@@ -33,16 +35,38 @@ fn main() {
     let (sRED, rRED): ChanType = channel();
 
 
+    /* Parse the configuration file. */
+    let config = config::parse();
+
+    if let Err(_) = config {
+        fail!("Error parsing configuration file.");
+        return;
+    }
+
+    let config = config.unwrap();
+
+
     /* We spawn the PubSub thread. This listens for incoming messages
      * to be piped to IRC and also responds to QRY messages which are
      * used to send state information to clients.
      */
     spawn(proc() {
-        let client = Client::open("redis://127.0.0.1").unwrap();
+        let client = Client::open("redis://:dickbag@127.0.0.1").unwrap();
         let client = client.get_connection().unwrap();
+        Cmd::new()
+            .arg("AUTH")
+            .arg("dickbags")
+            .execute(&client);
 
         /* PubSub object for receiving messages. */
-        let pubsub   = Client::open("redis://127.0.0.1").unwrap();
+        let pubsub   = Client::open("redis://:dickbags@127.0.0.1").unwrap();
+        let conn     = pubsub.get_connection().unwrap();
+        Cmd::new()
+            .arg("AUTH")
+            .arg("dickbags")
+            .execute(&conn);
+
+        println!("Converting to PUBSUB.");
         let mut conn = pubsub.get_pubsub().unwrap();
 
         /* PubSub channels. */
@@ -86,51 +110,44 @@ fn main() {
         use std::io::File;
         use std::str::from_utf8;
 
-        let client = Client::open("redis://127.0.0.1").unwrap();
+        let client = Client::open("redis://:dickbags@127.0.0.1").unwrap();
         let client = client.get_connection().unwrap();
+        Cmd::new()
+            .arg("AUTH")
+            .arg("dickbags")
+            .execute(&client);
 
         /* We need a mutable collection of open IRC servers as well, which we will
          * constantly wait on messages on. */
         let mut conns = Vec::new();
 
         /* Actually need to connect for that matter. */
-        if let Ok(data) = File::open(&Path::new("config.ini")).read_to_end() {
-            let data = toml::Parser::new(from_utf8(data[]).unwrap()).parse();
+        if let toml::Array(ref servers) = config["servers".to_string()] {
+            for server in servers.iter() {
+                let server = server.as_table().unwrap();
 
-            if let None = data {
-                println!("Data parsed from config.ini not valid toml.");
-                return;
-            }
+                /* Connect to IRC using the extracted server details. */
+                let address = server["address".to_string()].as_str().unwrap();
+                let port    = server["port".to_string()].as_integer().unwrap();
+                let nick    = server["nick".to_string()].as_str().unwrap();
+                let pass    = server.find(&"pass".to_string());
+                let mut con = irc::IRC::connect(address.to_string(), port as u16, nick.to_string());
 
-            let data = data.unwrap();
-
-            if let toml::Array(ref servers) = data["servers".to_string()] {
-                for server in servers.iter() {
-                    let server = server.as_table().unwrap();
-
-                    /* Connect to IRC using the extracted server details. */
-                    let address = server["address".to_string()].as_str().unwrap();
-                    let port    = server["port".to_string()].as_integer().unwrap();
-                    let nick    = server["nick".to_string()].as_str().unwrap();
-                    let pass    = server.find(&"pass".to_string());
-                    let mut con = irc::IRC::connect(address.to_string(), port as u16, nick.to_string());
-
-                    /* Password only if given, needs to be done before anything else. */
-                    if let Some(pass) = pass {
-                        con.raw(format!("PASS {}", pass.as_str().unwrap())[]);
-                    }
-
-                    /* User information. */
-                    con.raw(format!("NICK {}", nick)[]);
-                    con.raw(format!("USER {0} {0} {0} :{0}", nick)[]);
-
-                    /* Join all the specified channels. */
-                    for channel in server["channels".to_string()].as_slice().unwrap().iter() {
-                        con.raw(format!("JOIN {}", channel.as_str().unwrap())[]);
-                    }
-
-                    conns.push((address.to_string(), con));
+                /* Password only if given, needs to be done before anything else. */
+                if let Some(pass) = pass {
+                    con.raw(format!("PASS {}", pass.as_str().unwrap())[]);
                 }
+
+                /* User information. */
+                con.raw(format!("NICK {}", nick)[]);
+                con.raw(format!("USER {0} {0} {0} :{0}", nick)[]);
+
+                /* Join all the specified channels. */
+                for channel in server["channels".to_string()].as_slice().unwrap().iter() {
+                    con.raw(format!("JOIN {}", channel.as_str().unwrap())[]);
+                }
+
+                conns.push((address.to_string(), con));
             }
         }
 

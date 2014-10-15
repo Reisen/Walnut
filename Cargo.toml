@@ -9,7 +9,8 @@ path = "../hiredis-rs"
 
 
 [dependencies.redis-rs]
-git = "https://github.com/mitsuhiko/redis-rs/"
+#git = "https://github.com/mitsuhiko/redis-rs/"
+path = "../redis-rs"
 
 
 [dependencies.toml]
