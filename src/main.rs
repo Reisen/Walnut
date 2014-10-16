@@ -45,9 +45,6 @@ fn main() {
 
         // PubSub object for receiving messages.
         let pubsub   = Client::open("redis://:dickbags@127.0.0.1").unwrap();
-        let conn     = pubsub.get_connection().unwrap();
-
-        println!("Converting to PUBSUB.");
         let mut conn = pubsub.get_pubsub().unwrap();
 
         // PubSub channels.
@@ -55,8 +52,8 @@ fn main() {
         conn.psubscribe("QRY.*").unwrap();
 
         // Loop forever waiting for Redis messages.
-        loop {
-            let result  = conn.get_message().unwrap();
+        while let Ok(result) = conn.get_message() {
+            // Find out which channel the messages came from.
             let channel = result.get_channel_name();
 
             // Respond to bot core queries.
@@ -120,42 +117,27 @@ fn main() {
             for conn in conns.iter_mut() {
                 let (ref ident, ref mut c) = *conn;
 
-                match c.read_line() {
-                    Some(data) => {
-                        let parser = regex!(r"^(:\S+)?\s*(\S+)\s+(.*)\r?$");
-                        let chars: &[_] = &[' ', '\n', '\r'];
+                if let Some(data) = c.read_line() {
+                    let parser = regex!(r"^(:\S+)?\s*(\S+)\s+(.*)\r?$");
+                    let chars: &[_] = &[' ', '\n', '\r'];
 
-                        // Parse PREFIX/COMMAND/ARGS from incoming messages to
-                        // forward to Redis.
-                        match parser.captures(data[].trim_chars(chars)) {
-                            /* v.at(1): PREFIX
-                             * v.at(2): COMMAND
-                             * v.at(3): ARGS
-                             */
-                            Some(v) => {
-                                // Print the line out for logs.
-                                print!("<- {}", data);
+                    // Parse PREFIX/COMMAND/ARGS from incoming messages to
+                    // forward to Redis.
+                    if let Some(v) = parser.captures(data[].trim_chars(chars)) {
+                        // Print the line out for logs.
+                        print!("<- {}", data);
 
-                                // Handle PING specially, so we don't die just
-                                // because the plugin that was meant to be
-                                // handling this failed.
-                                if v.at(2)[] == "PING" {
-                                    c.raw(format!("PONG {}", v.at(3))[]);
-                                } else {
-                                    Cmd::new()
-                                        .arg("PUBLISH")
-                                        .arg(format!("RCV.{}:{}", v.at(2), ident))
-                                        .arg(data[])
-                                        .execute(&client);
-                                }
-                            }
-
-                            None => {
-                            }
+                        // Handle PING specially, so we don't die just because
+                        // the plugin that was meant to be handling this failed.
+                        if v.at(2)[] == "PING" {
+                            c.raw(format!("PONG {}", v.at(3))[]);
+                        } else {
+                            Cmd::new()
+                                .arg("PUBLISH")
+                                .arg(format!("RCV.{}:{}", v.at(2), ident))
+                                .arg(data[])
+                                .execute(&client);
                         }
-                    }
-
-                    _ => {
                     }
                 }
 
