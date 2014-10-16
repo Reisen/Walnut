@@ -1,6 +1,7 @@
 #![feature(phase)]
 #![feature(tuple_indexing)]
 #![feature(if_let)]
+#![feature(while_let)]
 #![feature(slicing_syntax)]
 #![feature(macro_rules)]
 
@@ -18,67 +19,47 @@ mod hooks;
 mod config;
 
 
-#[allow(non_snake_case)]
 fn main() {
-    use redis::{
-        Client,
-        Cmd,
-        Value
-    };
+    use redis::{Client, Cmd};
 
-    /* Two channels are defined so that messages can be sent backward
-     * and forward between the two threads.
-     */
+
+    // Parse the configuration file.
+    let config =
+        if let Ok(table) = config::parse() {
+            table
+        } else {
+            fail!("Error parsing configuration file.");
+            return;
+        };
+
+
+    // Channel used for sending incoming Redis messages to IRC.
     type ChanType = (Sender<(String, String)>, Receiver<(String, String)>);
-
-    let (sIRC, rIRC): ChanType = channel();
-    let (sRED, rRED): ChanType = channel();
+    let (tx, rx): ChanType = channel();
 
 
-    /* Parse the configuration file. */
-    let config = config::parse();
-
-    if let Err(_) = config {
-        fail!("Error parsing configuration file.");
-        return;
-    }
-
-    let config = config.unwrap();
-
-
-    /* We spawn the PubSub thread. This listens for incoming messages
-     * to be piped to IRC and also responds to QRY messages which are
-     * used to send state information to clients.
-     */
+    // Thread that forwards Redis messages to the IRC thread.
     spawn(proc() {
-        let client = Client::open("redis://:dickbag@127.0.0.1").unwrap();
+        let client = Client::open("redis://:dickbags@127.0.0.1").unwrap();
         let client = client.get_connection().unwrap();
-        Cmd::new()
-            .arg("AUTH")
-            .arg("dickbags")
-            .execute(&client);
 
-        /* PubSub object for receiving messages. */
+        // PubSub object for receiving messages.
         let pubsub   = Client::open("redis://:dickbags@127.0.0.1").unwrap();
         let conn     = pubsub.get_connection().unwrap();
-        Cmd::new()
-            .arg("AUTH")
-            .arg("dickbags")
-            .execute(&conn);
 
         println!("Converting to PUBSUB.");
         let mut conn = pubsub.get_pubsub().unwrap();
 
-        /* PubSub channels. */
+        // PubSub channels.
         conn.psubscribe("SND.*").unwrap();
         conn.psubscribe("QRY.*").unwrap();
 
-        /* Loop forever waiting for Redis messages. */
+        // Loop forever waiting for Redis messages.
         loop {
             let result  = conn.get_message().unwrap();
             let channel = result.get_channel_name();
 
-            /* Respond to bot core queries. */
+            // Respond to bot core queries.
             if channel.starts_with("QRY.") {
                 let commands = [
                     ("WHOAMI", hooks::whoami)
@@ -96,9 +77,9 @@ fn main() {
                 }
             }
 
-            /* Forward 'sent' messages to the IRC thread. */
+            // Forward 'sent' messages to the IRC thread.
             if channel.starts_with("SND.") {
-                sIRC.send((
+                tx.send((
                     String::from_str(result.get_channel_name()),
                     result.get_payload().unwrap()
                 ));
@@ -106,71 +87,34 @@ fn main() {
         }
     });
 
+    // IRC thread the receives IRC messages and pipes them out.
     spawn(proc() {
         use std::io::File;
         use std::str::from_utf8;
 
         let client = Client::open("redis://:dickbags@127.0.0.1").unwrap();
         let client = client.get_connection().unwrap();
-        Cmd::new()
-            .arg("AUTH")
-            .arg("dickbags")
-            .execute(&client);
 
-        /* We need a mutable collection of open IRC servers as well, which we will
-         * constantly wait on messages on. */
+        // We need a mutable collection of open IRC servers as well, which we
+        // will constantly wait on messages on.
         let mut conns = Vec::new();
 
-        /* Actually need to connect for that matter. */
+        // Actually need to connect for that matter.
         if let toml::Array(ref servers) = config["servers".to_string()] {
             for server in servers.iter() {
-                let server = server.as_table().unwrap();
-
-                /* Connect to IRC using the extracted server details. */
-                let address = server["address".to_string()].as_str().unwrap();
-                let port    = server["port".to_string()].as_integer().unwrap();
-                let nick    = server["nick".to_string()].as_str().unwrap();
-                let pass    = server.find(&"pass".to_string());
-                let mut con = irc::IRC::connect(address.to_string(), port as u16, nick.to_string());
-
-                /* Password only if given, needs to be done before anything else. */
-                if let Some(pass) = pass {
-                    con.raw(format!("PASS {}", pass.as_str().unwrap())[]);
+                if let Ok(irc) = config::to_irc(server.as_table().unwrap()) {
+                    conns.push(irc)
                 }
-
-                /* User information. */
-                con.raw(format!("NICK {}", nick)[]);
-                con.raw(format!("USER {0} {0} {0} :{0}", nick)[]);
-
-                /* Join all the specified channels. */
-                for channel in server["channels".to_string()].as_slice().unwrap().iter() {
-                    con.raw(format!("JOIN {}", channel.as_str().unwrap())[]);
-                }
-
-                conns.push((address.to_string(), con));
             }
         }
 
         loop {
             let mut incoming = Vec::new();
 
-            /* I want `while let` so bad. This will look so much nicer if
-             * I can simply do: while let Ok(v) = rIRC.try_recv() {
-             *
-             * The recommended solution right now is to use an iterator but
-             * lets be honest if I try and iterate here with the current
-             * protocol I'll be blocked forever.
-             */
-            loop {
-                match rIRC.try_recv() {
-                    Ok(v) => {
-                        incoming.push(v);
-                    }
-
-                    Err(_) => {
-                        break;
-                    }
-                }
+            // Receive all the Redis messages that are piped to us, and put them
+            // on the incoming queue to be processed.
+            while let Ok(v) = rx.try_recv() {
+                incoming.push(v);
             }
 
             for conn in conns.iter_mut() {
@@ -181,25 +125,23 @@ fn main() {
                         let parser = regex!(r"^(:\S+)?\s*(\S+)\s+(.*)\r?$");
                         let chars: &[_] = &[' ', '\n', '\r'];
 
-                        /* Parse PREFIX/COMMAND/ARGS from incoming messages to
-                         * forward to Redis. */
+                        // Parse PREFIX/COMMAND/ARGS from incoming messages to
+                        // forward to Redis.
                         match parser.captures(data[].trim_chars(chars)) {
                             /* v.at(1): PREFIX
                              * v.at(2): COMMAND
                              * v.at(3): ARGS
                              */
                             Some(v) => {
-                                /* Print the line out for logs. */
+                                // Print the line out for logs.
                                 print!("<- {}", data);
 
-                                /* Handle PING specially, so we don't die just
-                                 * because the plugin that was meant to be handling
-                                 * this failed.
-                                 */
+                                // Handle PING specially, so we don't die just
+                                // because the plugin that was meant to be
+                                // handling this failed.
                                 if v.at(2)[] == "PING" {
                                     c.raw(format!("PONG {}", v.at(3))[]);
-                                }
-                                else {
+                                } else {
                                     Cmd::new()
                                         .arg("PUBLISH")
                                         .arg(format!("RCV.{}:{}", v.at(2), ident))
@@ -217,9 +159,9 @@ fn main() {
                     }
                 }
 
-                /* Any Redis messages pushed accross the task boundary need to
-                 * be forwarded to a target server. This is pretty damn straight
-                 * forward and doesn't need much explanation. */
+                // Any Redis messages pushed accross the task boundary need to
+                // be forwarded to a target server. This is pretty damn straight
+                // forward and doesn't need much explanation.
                 incoming = incoming
                     .into_iter()
                     .filter_map(|v| {
