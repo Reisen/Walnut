@@ -84,6 +84,7 @@ fn main() {
         }
     });
 
+
     // IRC thread the receives IRC messages and pipes them out.
     spawn(proc() {
         use std::io::File;
@@ -114,41 +115,47 @@ fn main() {
                 incoming.push(v);
             }
 
+            // Cycle through the connections, we do the message forwarding for
+            // each open connection so each connection must have some form of
+            // timeout or other connections will end up hung.
             for conn in conns.iter_mut() {
-                let (ref ident, ref mut c) = *conn;
+                // Unwrap the connection, as it contains its unique identifier
+                // used for message routing.
+                let (ref ident, ref mut conn) = *conn;
 
-                if let Some(data) = c.read_line() {
-                    let parser = regex!(r"^(:\S+)?\s*(\S+)\s+(.*)\r?$");
-                    let chars: &[_] = &[' ', '\n', '\r'];
+                // Try and read a line from the connection.
+                let data = conn.read_line();
 
-                    // Parse PREFIX/COMMAND/ARGS from incoming messages to
-                    // forward to Redis.
-                    if let Some(v) = parser.captures(data[].trim_chars(chars)) {
-                        // Print the line out for logs.
-                        print!("<- {}", data);
+                // If the read was successful, we parse the line and extract the
+                // IRC parts from it.
+                if let Some(Some((prefix, command, args))) = data.as_ref().map(irc::parse) {
+                    // Get a reference to the data (this operation is safe, we
+                    // would not be in the if if data had been None).
+                    let data = data.as_ref().unwrap();
 
-                        // Handle PING specially, so we don't die just because
-                        // the plugin that was meant to be handling this failed.
-                        if v.at(2)[] == "PING" {
-                            c.raw(format!("PONG {}", v.at(3))[]);
-                        } else {
-                            Cmd::new()
-                                .arg("PUBLISH")
-                                .arg(format!("RCV.{}:{}", v.at(2), ident))
-                                .arg(data[])
-                                .execute(&client);
-                        }
+                    // Logs for debugging purposes.
+                    print!("<- {}", data);
+
+                    // Handle PING specially, so we don't die just because the
+                    // plugin that was meant to be handling this failed.
+                    if command[] == "PING" {
+                        conn.raw(format!("PONG {}", args[])[]);
+                    } else {
+                        Cmd::new()
+                            .arg("PUBLISH")
+                            .arg(format!("RCV.{}:{}", command[], ident))
+                            .arg(data[])
+                            .execute(&client);
                     }
                 }
 
                 // Any Redis messages pushed accross the task boundary need to
-                // be forwarded to a target server. This is pretty damn straight
-                // forward and doesn't need much explanation.
+                // be forwarded to a target server.
                 incoming = incoming
                     .into_iter()
                     .filter_map(|v| {
                         if v.0[].contains(ident[]) {
-                            c.raw(v.1[]);
+                            conn.raw(v.1[]);
                             None
                         } else {
                             Some(v)
