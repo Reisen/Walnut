@@ -13,7 +13,7 @@ use std::io::{
 
 pub fn parse() -> IoResult<TreeMap<String, Value>> {
     /* Open the file for reading, make sure the encoding is right. */
-    let data = try!(File::open(&Path::new("config.ini")).read_to_end());
+    let data = try!(File::open(&Path::new("config.toml")).read_to_end());
     let data = from_utf8(data[]);
 
     if let None = data {

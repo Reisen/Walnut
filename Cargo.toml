@@ -4,13 +4,9 @@ version = "0.0.1"
 authors = ["Reisen <reisen@morphism.org>"]
 
 
-[dependencies.hiredis]
-path = "../hiredis-rs"
-
-
 [dependencies.redis-rs]
 #git = "https://github.com/mitsuhiko/redis-rs/"
-path = "../redis-rs"
+path = "./redis-rs"
 
 
 [dependencies.toml]

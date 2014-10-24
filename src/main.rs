@@ -8,7 +8,6 @@
 
 #[phase(plugin)]
 extern crate regex_macros;
-extern crate hiredis;
 extern crate regex;
 extern crate redis;
 extern crate toml;
@@ -40,11 +39,11 @@ fn main() {
 
     // Thread that forwards Redis messages to the IRC thread.
     spawn(proc() {
-        let client = Client::open("redis://:dickbags@127.0.0.1").unwrap();
+        let client = Client::open("redis://127.0.0.1").unwrap();
         let client = client.get_connection().unwrap();
 
         // PubSub object for receiving messages.
-        let pubsub   = Client::open("redis://:dickbags@127.0.0.1").unwrap();
+        let pubsub   = Client::open("redis://127.0.0.1/").unwrap();
         let mut conn = pubsub.get_pubsub().unwrap();
 
         // PubSub channels.
@@ -90,7 +89,7 @@ fn main() {
         use std::io::File;
         use std::str::from_utf8;
 
-        let client = Client::open("redis://:dickbags@127.0.0.1").unwrap();
+        let client = Client::open("redis://127.0.0.1").unwrap();
         let client = client.get_connection().unwrap();
 
         // We need a mutable collection of open IRC servers as well, which we

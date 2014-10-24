@@ -45,13 +45,13 @@ def command_router(prefix, command, args):
         if not msg:
             msg = [""]
 
-        print(c.get(command, []))
-        for hook in c.get(command, []):
-            print('Checking')
-            return "PRIVMSG {} :{}".format(
-                chan,
-                hook(nick, chan, *msg)
-            )
+        for hook in c.get(command.lower(), []):
+            result = hook(nick, chan, *msg)
+            if result:
+                return "PRIVMSG {} :{}".format(
+                    chan,
+                    result
+                )
 
 
 def main():
@@ -66,13 +66,13 @@ def main():
         ident   = ident.split(':', 1)
         command = ident[0]
         ident   = ident[1]
+        data    = parse(data)
 
         print('Received: {} command from {}'.format(command, ident))
         for hook in h[command]:
-            data = parse(data)
             response = hook(*data)
 
-            if response:
+            if response is not None:
                 r.publish(
                     'SND.{}:{}'.format(command, ident),
                     response
