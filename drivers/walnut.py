@@ -4,7 +4,7 @@ from collections import defaultdict
 from redis import StrictRedis
 
 # Open a connection to Redis.
-r = StrictRedis(host = 'localhost', port = 6379, password = 'dickbags')
+r = StrictRedis(host = 'localhost', port = 6379)
 p = r.pubsub(ignore_subscribe_messages = True)
 
 # Maintain a hook list, and command list.
@@ -45,7 +45,9 @@ def command_router(prefix, command, args):
         if not msg:
             msg = [""]
 
+        print(c.get(command, []))
         for hook in c.get(command, []):
+            print('Checking')
             return "PRIVMSG {} :{}".format(
                 chan,
                 hook(nick, chan, *msg)
@@ -58,8 +60,8 @@ def main():
             continue
 
         # Extract the right Data.
-        channel = message['channel'].decode('UTF-8')
-        data    = message['data'].decode('UTF-8')
+        channel = message['channel'].decode('UTF-8').strip()
+        data    = message['data'].decode('UTF-8').strip()
         ident   = channel.split('.', 1)[1]
         ident   = ident.split(':', 1)
         command = ident[0]
