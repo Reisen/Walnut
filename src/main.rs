@@ -139,13 +139,13 @@ fn main() {
                     // plugin that was meant to be handling this failed.
                     if command[] == "PING" {
                         conn.raw(format!("PONG {}", args[])[]);
-                    } else {
-                        Cmd::new()
-                            .arg("PUBLISH")
-                            .arg(format!("RCV.{}:{}", command[], ident))
-                            .arg(data[])
-                            .execute(&client);
                     }
+
+                    Cmd::new()
+                        .arg("PUBLISH")
+                        .arg(format!("RCV.{}:{}", command[], ident))
+                        .arg(data[])
+                        .execute(&client);
                 }
 
                 // Any Redis messages pushed accross the task boundary need to
