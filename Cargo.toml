@@ -5,8 +5,8 @@ authors = ["Reisen <reisen@morphism.org>"]
 
 
 [dependencies.redis-rs]
-#git = "https://github.com/mitsuhiko/redis-rs/"
-path = "./redis-rs"
+git = "https://github.com/mitsuhiko/redis-rs/"
+#path = "./redis-rs"
 
 
 [dependencies.toml]

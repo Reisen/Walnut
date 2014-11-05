@@ -27,7 +27,7 @@ fn main() {
         if let Ok(table) = config::parse() {
             table
         } else {
-            fail!("Error parsing configuration file.");
+            panic!("Error parsing configuration file.");
             return;
         };
 
