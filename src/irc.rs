@@ -34,7 +34,7 @@ pub fn parse<'a>(line: &'a String) -> Option<(&'a str, &'a str, &'a str)> {
 impl IRC {
     /// Connect to a server based on an addrses and port.
     pub fn connect(server: String, port: u16, nick: String) -> IRC {
-        let conn = TcpStream::connect(server[], port).ok().unwrap();
+        let conn = TcpStream::connect((server[], port)).ok().unwrap();
 
         IRC {
             server: server,
