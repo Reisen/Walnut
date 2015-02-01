@@ -28,7 +28,7 @@ encodeRouter :: String -> String -> String -> C8.ByteString
 encodeRouter f t s =
     let pattern = "^(:\\S+)?\\s*(\\S+)\\s+(.*)\\r?$" :: String
         matches = (tail . head) (s =~ pattern)       :: [String]
-        format  = "%s(%s,%s)%s"
+        format  = "IRC:%s(%s,%s)%s"
         in
 
     C8.pack $ printf format (matches !! 1) f t s
@@ -106,7 +106,7 @@ ircLoop (Right conf) = do
         -- out into the wilderness.
         sub <- socket Sub
         connect sub "tcp://0.0.0.0:9890"
-        subscribe sub "W-OUT"
+        subscribe sub "WAR:FORWARD"
 
         forever $ do
             line <- receive sub
