@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE UnicodeSyntax #-}
 
 module Main where
 
@@ -6,12 +7,18 @@ import Network
 import System.IO
 import System.Timeout
 import System.ZMQ4.Monadic
-import Control.Arrow
+import Control.Applicative
 import Control.Monad
 import Control.Concurrent
 import Control.Concurrent.MVar
+import Text.Printf
 import Text.Regex.PCRE
+import Data.Aeson
+
 import qualified Data.ByteString.Char8 as C8
+import qualified Data.ByteString.Lazy.Char8 as C8Lazy
+
+import Config
 
 
 
@@ -19,10 +26,12 @@ import qualified Data.ByteString.Char8 as C8
  - Automatically packed to be sent accross the network. -}
 encodeRouter :: String -> String -> String -> C8.ByteString
 encodeRouter f t s =
-    let pattern   = "^(:\\S+)?\\s*(\\S+)\\s+(.*)\\r?$" :: String
-        (_,_,_,g) = (s =~ pattern)                     :: (String, String, String, [String]) in
+    let pattern = "^(:\\S+)?\\s*(\\S+)\\s+(.*)\\r?$" :: String
+        matches = (tail . head) (s =~ pattern)       :: [String]
+        format  = "%s(%s,%s)%s"
+        in
 
-    C8.pack $ (g !! 1) ++ "(" ++ f ++ "," ++ t ++ ")" ++ s
+    C8.pack $ printf format (matches !! 1) f t s
 
 
 
@@ -47,44 +56,72 @@ route = runZMQ $ do
 
 
 
-{- Main thread. This handles the actual heavy lifting of dealing with IRC
- - networking and config parsing. -}
-main :: IO ()
-main = do
+ircLoop :: Either String Config -> IO ()
+ircLoop (Left err)   = putStrLn err
+ircLoop (Right conf) = do
     -- Run the routing thread.
     forkIO route
 
-    -- Connect to IRC. Needs to work with a config parser, fix this.
-    network <- connectTo "address.co.uk" (PortNumber $ fromIntegral 6667)
-    mapM_ (hPutStrLn network) [
-        "NICK hasknut",
-        "USER hasknut hasknut hasknut :hasknut",
-        "JOIN #hasknut"
-        ]
+    -- Connect to networks in the configuration file.
+    networks <- flip mapM (servers conf) $ \server -> do
+        -- Extract Configuration
+        let address = serverAddress server
+            port    = fromIntegral (serverPort server)
+            pass    = serverPass server
 
-    -- Start a ZMQ context so we can start routing messages.
+        -- Connect to the network.
+        network <- connectTo address (PortNumber port)
+
+        -- Auth if Necessary
+        case pass of
+            Just p  -> hPutStrLn network ("PASS " ++ p)
+            Nothing -> return ()
+
+        -- Send Connection Information
+        mapM_ (hPutStrLn network) [
+            "NICK hasknut",
+            "USER hasknut hasknut hasknut :hasknut",
+            "JOIN #none"
+            ]
+
+        -- Append to Network List
+        return (address, network)
+
+    -- Create a ZMQ Context. This happens now so we can share it among the
+    -- various threads.
     runZMQ $ do
-        -- Connect to the ZMQ Publisher in the routing thread so that we
-        -- can forward messages from plugins back out to IRC networks.
+        -- This is why lightweight threads are awesome. Spawn a thread to
+        -- handle each network.
+        flip mapM_ networks $ \(name, network) ->
+            async $ do
+                req <- socket Req
+                connect req "tcp://0.0.0.0:9891"
+                forever $ do
+                    let encoder = encodeRouter name "*"
+                    message <- liftIO (hGetLine network)
+                    send req [] (encoder message)
+                    receive req
+
+        -- And now we sit around waiting for published messages to route back
+        -- out into the wilderness.
         sub <- socket Sub
         connect sub "tcp://0.0.0.0:9890"
         subscribe sub "W-OUT"
 
-        -- Workhorse for actually routing.
-        async $ forever $ do
-            line <- receive sub
-            let payload = tail . dropWhile (')'/=) . C8.unpack $ line
-            liftIO (hPutStrLn network payload)
-
-        -- Opens a ZMQ Request socket to the Responder in the routing
-        -- thread. Messages received from networks are forwarded over
-        -- this socket to be broadcast to plugins.
-        req <- socket Req
-        connect req "tcp://0.0.0.0:9891"
-
-        -- Workhorse for actually routing.
         forever $ do
-            let encoder = encodeRouter "8ace3bea" "*"
-            message <- liftIO (hGetLine network)
-            send req [] (encoder message)
-            receive req
+            line <- receive sub
+            let payload     = tail . dropWhile (')'/=) . C8.unpack $ line
+                argsplits   = tail . dropWhile (','/=) . C8.unpack $ line
+                destination = takeWhile (')'/=) $ argsplits
+                target      = lookup destination networks
+
+            case target of
+                Just s  -> liftIO (hPutStrLn s payload)
+                Nothing -> return ()
+
+
+
+{- Main thread. This handles the actual heavy lifting of dealing with IRC
+ - networking and config parsing. -}
+main :: IO ()
+main = readFile "config" >>= ircLoop . eitherDecode . C8Lazy.pack

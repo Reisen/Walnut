@@ -49,5 +49,5 @@ if __name__ == "__main__":
         for f in hooks[tag]:
             response = f(tag, arg, pay)
             if response:
-                requester.send('W-OUT(bruh,*){}'.format(response).encode('UTF-8'))
+                requester.send('W-OUT(bruh,{}){}'.format(arg[0], response).encode('UTF-8'))
                 requester.recv()

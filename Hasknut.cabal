@@ -19,6 +19,13 @@ executable Hasknut
   main-is:             Main.hs
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base >=4.7 && <4.8, zeromq4-haskell, bytestring, network, regex-base, regex-pcre
+  build-depends:
+    base >=4.7 && <4.8,
+    zeromq4-haskell,
+    bytestring,
+    network,
+    regex-base,
+    regex-pcre,
+    aeson
   hs-source-dirs:      src
   default-language:    Haskell2010
