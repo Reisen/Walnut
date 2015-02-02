@@ -15,6 +15,7 @@ import Control.Applicative
 data Server  = Server {
     serverAddress :: String,
     serverPort    :: Int,
+    serverNick    :: String,
     serverPass    :: Maybe String,
     serverChans   :: [String]
     } deriving (Show)
@@ -32,6 +33,7 @@ instance FromJSON Server where
         Server              <$>
             v .:  "address" <*>
             v .:  "port"    <*>
+            v .:  "nick"    <*>
             v .:? "pass"    <*>
             v .:  "chans"
 

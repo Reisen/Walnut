@@ -58,7 +58,7 @@ parse_payload(char *message) {
     /* Allocate Arguments. */
     size_t argc = 0;
     char *end = strchr(message, ')');
-    output->args = malloc(sizeof(const char *) * 8);
+    output->args = malloc(sizeof(const char *) * 16);
 
     while(message <= end) {
         /* Make sure this isn't the last argument in the list. */
@@ -94,6 +94,7 @@ free_payload(Message *m) {
         free(m->args[argc++]);
     }
 
+    free(m->args);
     free(m->tag);
     free(m);
 
@@ -129,6 +130,9 @@ walnut_run(Walnut *walnut) {
 
         buffer[size] = '\0';
         Message *m = parse_payload(buffer);
+
+        /* Run plugins listening for IRC namespace commands. */
+
         free_payload(m);
     }
 

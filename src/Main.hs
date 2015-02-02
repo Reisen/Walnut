@@ -68,6 +68,8 @@ ircLoop (Right conf) = do
         let address = serverAddress server
             port    = fromIntegral (serverPort server)
             pass    = serverPass server
+            nick    = serverNick server
+            chans   = serverChans server
 
         -- Connect to the network.
         network <- connectTo address (PortNumber port)
@@ -78,11 +80,9 @@ ircLoop (Right conf) = do
             Nothing -> return ()
 
         -- Send Connection Information
-        mapM_ (hPutStrLn network) [
-            "NICK hasknut",
-            "USER hasknut hasknut hasknut :hasknut",
-            "JOIN #none"
-            ]
+        hPutStrLn network ("NICK " ++ nick)
+        hPutStrLn network (printf "USER %s %s %s :%s" nick nick nick nick)
+        mapM_ (hPutStrLn network . ("JOIN "++)) chans
 
         -- Append to Network List
         return (address, network)
