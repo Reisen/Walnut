@@ -82,7 +82,7 @@ def parse_irc(msg):
 
 # Plugin Start Point
 # ------------------------------------------------------------------------------
-def walnut():
+def walnut(plugin_name):
     context    = zmq.Context()
 
     subscriber = context.socket(zmq.SUB)
@@ -113,5 +113,5 @@ def walnut():
 
                 if response:
                     print('S: {}'.format(response))
-                    requester.send('WAR:FORWARD(bruh,{}){}'.format(args[0], response).encode('UTF-8'))
+                    requester.send('WAR:FORWARD({},{}){}'.format(plugin_name, args[0], response).encode('UTF-8'))
                     requester.recv()
