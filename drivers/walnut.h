@@ -121,15 +121,15 @@ typedef struct {
 // -----------------------------------------------------------------------------
 typedef struct {
     char *tag;
-    char **args;
+    char *args[8];
     char *payload;
 } Message;
 
 typedef struct {
     char *prefix;
     char *command;
+    char *args[8];
     char *trail;
-    char **args;
 } IRCMessage;
 
 Walnut
@@ -141,7 +141,7 @@ walnut_init() {
 
 void
 walnut_register(Walnut *ctx, const char *tag, callback c) {
-    Callback *call = malloc(sizeof(Callback *));
+    Callback *call = malloc(sizeof(Callback));
     call->tag = tag;
     call->call = c;
     kv_push(Callback*, ctx->callbacks, call);
@@ -159,117 +159,73 @@ strcut(char *s, size_t len) {
 }
 
 
-Message *
+Message
 parse_payload(char *message) {
     /* Allocate Structure. */
-    Message *output = malloc(sizeof(message));
+    Message output;
 
-    /* Maintain pointer into string for parsing. */
-    char *index = strchr(message, '(');
-    output->tag = strcut(message, (size_t)(index - message));
+    /* Parse Routing Format. */
+    char *index;
+    output.tag     = strtok_r(message, "(", &index);
+    char *args     = strtok_r(NULL, ")", &index);
+    output.payload = index;
 
-    /* Move to arguments. */
-    message = index + 1;
-
-    /* Allocate Arguments. */
     size_t argc = 0;
-    char *end = strchr(message, ')');
-    output->args = malloc(sizeof(const char *) * 16);
+    while(1) {
+        char *arg = strtok_r(args, ",", &index);
+        output.args[argc++] = arg;
+        args = NULL;
 
-    while(message <= end) {
-        /* Make sure this isn't the last argument in the list. */
-        index = strchr(message, ',');
-
-        if(index == NULL || end <= index) {
-            if(end <= index) {
-                break;
-            }
-
-            index = strchr(message, ')');
+        if(arg == NULL) {
+            break;
         }
-
-        /* Allocate the argument. */
-        char *argument = strcut(message, (size_t)(index - message));
-        output->args[argc++] = argument;
-        message = index + 1;
     }
-
-    output->args[argc] = 0;
-
-    /* Payload doesn't need allocating. Already null terminated and whole. */
-    output->payload = message;
 
     return output;
 }
 
-Message *
-free_payload(Message *m) {
-    size_t argc = 0;
-
-    while(m->args[argc] != NULL) {
-        free(m->args[argc++]);
-    }
-
-    printf("Freeing Payload\n");
-    free(m->args);
-    free(m->tag);
-    free(m);
-
-    return NULL;
-}
-
-IRCMessage *
-parse_irc(Message *message) {
+IRCMessage
+parse_irc(Message *m) {
     /* Allocate Structure. */
-    IRCMessage *irc_m = malloc(sizeof(IRCMessage));
+    IRCMessage output;
+    output.trail      = NULL;
+    output.prefix     = NULL;
 
-    char *payload = message->payload;
-    char *index   = payload;
+    char *index = m->payload;
 
-    /* Check for a prefix. */
-    if(payload[0] == ':') {
-        index = strchr(payload, ' ');
-        irc_m->prefix = strcut(payload + 1, (size_t)(index - payload));
-        payload = index + 1;
+    /* Parse prefix if available. */
+    if(m->payload[0] == ':') {
+        char *split = strchr(m->payload, ' ');
+        *split = '\0';
+        output.prefix = m->payload;
+        index = split + 1;
     }
 
-    /* Check if there's any trailing. */
-    char *trail = strstr(payload, " :");
+    /* Parse trailing if available. */
+    char *trail = strstr(index, " :");
     if(trail != NULL) {
-        irc_m->trail = strcut(trail + 2, strlen(trail));
-    } else {
-        trail = payload + strlen(payload);
+        *trail = '\0';
+        trail += 2;
     }
 
-    /* Parse arguments out. */
+    /* Now parse arguments. */
     size_t argc = 0;
-    irc_m->args = malloc(sizeof(const char *) * 16);
+    char *argindex;
+    while(1) {
+        char *arg = strtok_r(index, " ", &argindex);
+        output.args[argc++] = arg;
+        index = NULL;
 
-    while(payload <= trail) {
-        /* Make sure this isn't the last argument in the list. */
-        index = strchr(payload, ' ');
-
-        if(index == NULL || trail <= index) {
+        if(arg == NULL) {
             break;
         }
-
-        /* Allocate the argument. */
-        char *argument = strcut(payload, (size_t)(index - payload));
-        irc_m->args[argc++] = argument;
-        payload = index + 1;
     }
 
-    return irc_m;
-}
+    /* Append Trailing. */
+    output.args[argc-1] = trail;
+    output.args[argc] = NULL;
 
-IRCMessage *
-free_irc(IRCMessage *m) {
-    printf("Freeing IRC\n");
-    if(m->trail != NULL) free(m->trail);
-    if(m->prefix != NULL) free(m->prefix);
-    free(m);
-
-    return NULL;
+    return output;
 }
 
 void
@@ -282,6 +238,7 @@ walnut_run(Walnut *walnut) {
     zmq_connect(req, "tcp://0.0.0.0:9891");
     zmq_connect(sub, "tcp://0.0.0.0:9890");
     zmq_setsockopt(sub, ZMQ_SUBSCRIBE, "IRC:PRIVMSG", strlen("IRC:PRIVMSG"));
+    zmq_setsockopt(sub, ZMQ_SUBSCRIBE, "IRC:JOIN", strlen("IRC:JOIN"));
     zmq_setsockopt(sub, ZMQ_SUBSCRIBE, "IRC:PING", strlen("IRC:PING"));
     zmq_setsockopt(sub, ZMQ_SUBSCRIBE, "IPC:CALL", strlen("IRC:CALL"));
 
@@ -299,33 +256,31 @@ walnut_run(Walnut *walnut) {
         }
 
         buffer[size] = '\0';
-        Message *m = parse_payload(buffer);
+        printf("R: %s\n", buffer);
+        Message m = parse_payload(buffer);
 
         /* Run plugins listening for IRC namespace commands. */
-        if(strncmp(m->tag, "IRC:", 4) == 0) {
-            IRCMessage *irc_m = parse_irc(m);
+        if(strncmp(m.tag, "IRC:", 4) == 0) {
+            IRCMessage irc_m = parse_irc(&m);
 
             size_t i = 0;
             for(i = 0; i < kv_size(walnut->callbacks); ++i) {
                 Callback *call = kv_A(walnut->callbacks, i);
-                if(strncmp(m->tag, call->tag, strlen(call->tag)) == 0) {
+                if(strncmp(m.tag, call->tag, strlen(call->tag)) == 0) {
                     char buf[512];
-                    const char *output = (*call->call)(irc_m);
+                    const char *output = (*call->call)(&irc_m);
 
                     if(output == NULL) {
                         continue;
                     }
 
-                    sprintf(buf, "WAR:FORWARD(%s,%s)%s", "bruh", m->args[0], output);
+                    sprintf(buf, "WAR:FORWARD(%s,%s)%s", "bruh", m.args[0], output);
+                    printf("S: %s\n", buf);
                     zmq_send(req, buf, strlen(buf), 0);
                     zmq_recv(sub, buf, 8, 0);
                 }
             }
-
-            free_irc(irc_m);
         }
-
-        free_payload(m);
     }
 
     zmq_close(req);
