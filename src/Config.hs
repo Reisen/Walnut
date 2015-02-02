@@ -17,7 +17,8 @@ data Server  = Server {
     serverPort    :: Int,
     serverNick    :: String,
     serverPass    :: Maybe String,
-    serverChans   :: [String]
+    serverChans   :: [String],
+    serverSSL     :: Maybe Bool
     } deriving (Show)
 
 
@@ -35,7 +36,8 @@ instance FromJSON Server where
             v .:  "port"    <*>
             v .:  "nick"    <*>
             v .:? "pass"    <*>
-            v .:  "chans"
+            v .:  "chans"   <*>
+            v .:? "ssl"
 
     parseJSON _ = mzero
 

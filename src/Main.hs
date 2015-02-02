@@ -3,7 +3,7 @@
 
 module Main where
 
-import Network
+import Network.Connection
 import System.IO
 import System.Timeout
 import System.ZMQ4.Monadic
@@ -56,6 +56,11 @@ route = runZMQ $ do
 
 
 
+ircPack :: String -> C8.ByteString
+ircPack = C8.pack . (++"\n")
+
+
+
 ircLoop :: Either String Config -> IO ()
 ircLoop (Left err)   = putStrLn err
 ircLoop (Right conf) = do
@@ -70,19 +75,26 @@ ircLoop (Right conf) = do
             pass    = serverPass server
             nick    = serverNick server
             chans   = serverChans server
+            ssl     = serverSSL server
 
         -- Connect to the network.
-        network <- connectTo address (PortNumber port)
+        context <- initConnectionContext
+        network <- connectTo context $ ConnectionParams {
+            connectionHostname  = address,
+            connectionPort      = port,
+            connectionUseSecure = Just $ TLSSettingsSimple True False True,
+            connectionUseSocks  = Nothing
+            }
 
         -- Auth if Necessary
         case pass of
-            Just p  -> hPutStrLn network ("PASS " ++ p)
+            Just p  -> connectionPut network $ ircPack ("PASS " ++ p)
             Nothing -> return ()
 
         -- Send Connection Information
-        hPutStrLn network ("NICK " ++ nick)
-        hPutStrLn network (printf "USER %s %s %s :%s" nick nick nick nick)
-        mapM_ (hPutStrLn network . ("JOIN "++)) chans
+        connectionPut network $ ircPack ("NICK " ++ nick)
+        connectionPut network $ ircPack (printf "USER %s %s %s :%s" nick nick nick nick)
+        mapM_ (connectionPut network . ircPack . ("JOIN "++)) chans
 
         -- Append to Network List
         return (address, network)
@@ -98,8 +110,8 @@ ircLoop (Right conf) = do
                 connect req "tcp://0.0.0.0:9891"
                 forever $ do
                     let encoder = encodeRouter name "*"
-                    message <- liftIO (hGetLine network)
-                    send req [] (encoder message)
+                    message <- liftIO (connectionGetLine 128 network)
+                    send req [] (encoder . C8.unpack $ message)
                     receive req
 
         -- And now we sit around waiting for published messages to route back
@@ -116,7 +128,7 @@ ircLoop (Right conf) = do
                 target      = lookup destination networks
 
             case target of
-                Just s  -> liftIO (hPutStrLn s payload)
+                Just s  -> liftIO (connectionPut s . ircPack $ payload)
                 Nothing -> return ()
 
 
