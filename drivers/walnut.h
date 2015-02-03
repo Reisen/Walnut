@@ -266,6 +266,7 @@ walnut_run(Walnut *walnut) {
             size_t i = 0;
             for(i = 0; i < kv_size(walnut->callbacks); ++i) {
                 Callback *call = kv_A(walnut->callbacks, i);
+
                 if(strncmp(m.tag, call->tag, strlen(call->tag)) == 0) {
                     char buf[512];
                     const char *output = (*call->call)(&irc_m);
@@ -277,7 +278,7 @@ walnut_run(Walnut *walnut) {
                     sprintf(buf, "WAR:FORWARD(%s,%s)%s", "bruh", m.args[0], output);
                     printf("S: %s\n", buf);
                     zmq_send(req, buf, strlen(buf), 0);
-                    zmq_recv(sub, buf, 8, 0);
+                    zmq_recv(req, buf, 8, 0);
                 }
             }
         }

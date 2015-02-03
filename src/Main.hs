@@ -31,7 +31,7 @@ encodeRouter f t s =
         format  = "IRC:%s(%s,%s)%s"
         in
 
-    C8.pack $ printf format (matches !! 1) f t s
+    C8.pack $ printf format (matches !! 1) f t (reverse . tail . reverse $ s)
 
 
 
