@@ -85,12 +85,13 @@ def parse_irc(msg):
 def walnut(plugin_name):
     context    = zmq.Context()
 
+    # Subscriber. Automatically subscribe to all relevant events.
     subscriber = context.socket(zmq.SUB)
     subscriber.connect("tcp://0.0.0.0:9890")
-    subscriber.setsockopt(zmq.SUBSCRIBE, b"IRC:PRIVMSG")
-    subscriber.setsockopt(zmq.SUBSCRIBE, b"IRC:PING")
-    subscriber.setsockopt(zmq.SUBSCRIBE, b"IPC:CALL")
+    for name in hooks:
+        subscriber.setsockopt(zmq.SUBSCRIBE, "IRC:{}".format(name).encode('UTF-8'))
 
+    # Requester, for outgoing messages.
     requester = context.socket(zmq.REQ)
     requester.connect("tcp://0.0.0.0:9891")
 

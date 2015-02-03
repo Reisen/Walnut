@@ -114,6 +114,9 @@ typedef struct {
 
 typedef struct {
     kvec_t(Callback*) callbacks;
+    void *context;
+    void *sub;
+    void *req;
 } Walnut;
 
 
@@ -136,15 +139,42 @@ Walnut
 walnut_init() {
     Walnut walnut;
     kv_init(walnut.callbacks);
+
+    /* Open ZMQ Context & Sockets. */
+    walnut.context = zmq_ctx_new();
+    walnut.sub     = zmq_socket(walnut.context, ZMQ_SUB);
+    walnut.req     = zmq_socket(walnut.context, ZMQ_REQ);
+
+    /* Connect to ZMQ Endpoints. */
+    zmq_connect(walnut.req, "tcp://0.0.0.0:9891");
+    zmq_connect(walnut.sub, "tcp://0.0.0.0:9890");
+
     return walnut;
 }
 
 void
 walnut_register(Walnut *ctx, const char *tag, callback c) {
+    /* Create a callback object. */
     Callback *call = malloc(sizeof(Callback));
     call->tag = tag;
     call->call = c;
+
+    /* Check if tag is already registered. This MIGHT be unnecessary, I am too
+     * lazy to check if subscribing twice is an error or not.
+     */
+    size_t i = 0;
+    for(i = 0; i < kv_size(ctx->callbacks); ++i) {
+        Callback *existing_call = kv_A(ctx->callbacks, i);
+
+        if(strncmp(tag, existing_call->tag, strlen(existing_call->tag)) == 0) {
+            return;
+        }
+    }
+
+    /* Register for the event. */
+    printf("Registering %s\n", tag);
     kv_push(Callback*, ctx->callbacks, call);
+    zmq_setsockopt(ctx->sub, ZMQ_SUBSCRIBE, tag, strlen(tag));
 }
 
 
@@ -230,25 +260,13 @@ parse_irc(Message *m) {
 
 void
 walnut_run(Walnut *walnut) {
-    /* Open and connect sockets to the core. */
-    void *context = zmq_ctx_new();
-    void *sub     = zmq_socket(context, ZMQ_SUB);
-    void *req     = zmq_socket(context, ZMQ_REQ);
-
-    zmq_connect(req, "tcp://0.0.0.0:9891");
-    zmq_connect(sub, "tcp://0.0.0.0:9890");
-    zmq_setsockopt(sub, ZMQ_SUBSCRIBE, "IRC:PRIVMSG", strlen("IRC:PRIVMSG"));
-    zmq_setsockopt(sub, ZMQ_SUBSCRIBE, "IRC:JOIN", strlen("IRC:JOIN"));
-    zmq_setsockopt(sub, ZMQ_SUBSCRIBE, "IRC:PING", strlen("IRC:PING"));
-    zmq_setsockopt(sub, ZMQ_SUBSCRIBE, "IPC:CALL", strlen("IRC:CALL"));
-
     /* Buffer used for the currently handled message. */
     char buffer[513];
 
     /* Plugin event loop. */
     while(1) {
         /* Receive message from the Publisher. */
-        size_t size = zmq_recv(sub, buffer, 512, 0);
+        size_t size = zmq_recv(walnut->sub, buffer, 512, 0);
         assert(size != -1);
 
         if(size > 512) {
@@ -277,15 +295,16 @@ walnut_run(Walnut *walnut) {
 
                     sprintf(buf, "WAR:FORWARD(%s,%s)%s", "bruh", m.args[0], output);
                     printf("S: %s\n", buf);
-                    zmq_send(req, buf, strlen(buf), 0);
-                    zmq_recv(req, buf, 8, 0);
+                    zmq_send(walnut->req, buf, strlen(buf), 0);
+                    zmq_recv(walnut->req, buf, 8, 0);
                 }
             }
         }
     }
 
-    zmq_close(req);
-    zmq_ctx_destroy(context);
+    zmq_close(walnut->sub);
+    zmq_close(walnut->req);
+    zmq_ctx_destroy(walnut->context);
 }
 
 #endif
