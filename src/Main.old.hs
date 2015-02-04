@@ -119,17 +119,43 @@ ircLoop (Right conf) = do
         sub <- socket Sub
         connect sub "tcp://0.0.0.0:9890"
         subscribe sub "WAR:FORWARD"
+        subscribe sub "WAR:BROADCAST"
+        subscribe sub "WAR:INFO"
 
+        -- Also need one more request socket so we can broadcast messages for
+        -- clients wanting to use the publisher.
+        req <- socket Req
+        connect req "tcp://0.0.0.0:9891"
+
+        -- Lets Go
         forever $ do
             line <- receive sub
-            let payload     = tail . dropWhile (')'/=) . C8.unpack $ line
-                argsplits   = tail . dropWhile (','/=) . C8.unpack $ line
+            let unpacked    = C8.unpack line
+                tag         = takeWhile ('('/=) unpacked
+                payload     = tail . dropWhile (')'/=) $ unpacked
+                argsplits   = tail . dropWhile (','/=) $ unpacked
                 destination = takeWhile (')'/=) $ argsplits
                 target      = lookup destination networks
 
-            case target of
-                Just s  -> liftIO (connectionPut s . ircPack $ payload)
-                Nothing -> return ()
+            -- Handle different WAR commands.
+            case tag of
+                {- Forwards messages out into the relevant IRC networks. -}
+                "WAR:FORWARD" ->
+                    case target of
+                        Just s  -> liftIO (connectionPut s . ircPack $ payload)
+                        Nothing -> return ()
+
+                {- Broadcasts messages on the publisher. -}
+                "WAR:BROADCAST" ->
+                    send req [] (C8.pack payload)
+
+                {- Reply to INFO requests. -}
+                "WAR:INFO" ->
+                    return ()
+
+                {- Unknown Command. Do nothing. -}
+                _ ->
+                    return ()
 
 
 
