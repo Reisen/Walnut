@@ -116,7 +116,7 @@ typedef struct {
     kvec_t(Callback*) callbacks;
     void *context;
     void *sub;
-    void *req;
+    void *push;
 } Walnut;
 
 
@@ -124,6 +124,8 @@ typedef struct {
 // -----------------------------------------------------------------------------
 typedef struct {
     char *tag;
+    char *from;
+    char *to;
     char *args[8];
     char *payload;
 } Message;
@@ -143,10 +145,10 @@ walnut_init() {
     /* Open ZMQ Context & Sockets. */
     walnut.context = zmq_ctx_new();
     walnut.sub     = zmq_socket(walnut.context, ZMQ_SUB);
-    walnut.req     = zmq_socket(walnut.context, ZMQ_REQ);
+    walnut.push    = zmq_socket(walnut.context, ZMQ_PUSH);
 
     /* Connect to ZMQ Endpoints. */
-    zmq_connect(walnut.req, "tcp://0.0.0.0:9891");
+    zmq_connect(walnut.push, "tcp://0.0.0.0:9891");
     zmq_connect(walnut.sub, "tcp://0.0.0.0:9890");
 
     return walnut;
@@ -160,8 +162,7 @@ walnut_register(Walnut *ctx, const char *tag, callback c) {
     call->call = c;
 
     /* Check if tag is already registered. This MIGHT be unnecessary, I am too
-     * lazy to check if subscribing twice is an error or not.
-     */
+     * lazy to check if subscribing twice is an error or not. */
     size_t i = 0;
     for(i = 0; i < kv_size(ctx->callbacks); ++i) {
         Callback *existing_call = kv_A(ctx->callbacks, i);
@@ -196,20 +197,21 @@ parse_payload(char *message) {
 
     /* Parse Routing Format. */
     char *index;
-    output.tag     = strtok_r(message, "(", &index);
-    char *args     = strtok_r(NULL, ")", &index);
-    output.payload = index;
+    output.tag     = strtok_r(message, " ", &index);
+    output.from    = strtok_r(NULL,    "!", &index);
+    output.to      = strtok_r(NULL,    " ", &index);
+    int argc       = atoi(strtok_r(NULL,    " ", &index));
 
-    size_t argc = 0;
-    while(1) {
-        char *arg = strtok_r(args, ",", &index);
+    while(argc > 0) {
+        char *arg = strtok_r(NULL, " ", &index);
         output.args[argc++] = arg;
-        args = NULL;
 
         if(arg == NULL) {
             break;
         }
     }
+
+    output.payload = index;
 
     return output;
 }
@@ -293,17 +295,16 @@ walnut_run(Walnut *walnut) {
                         continue;
                     }
 
-                    sprintf(buf, "WAR:FORWARD(%s,%s)%s", "bruh", m.args[0], output);
+                    sprintf(buf, "IPC:CALL %s!%s 1 forward %s", "bruh", m.from, output);
                     printf("S: %s\n", buf);
-                    zmq_send(walnut->req, buf, strlen(buf), 0);
-                    zmq_recv(walnut->req, buf, 8, 0);
+                    zmq_send(walnut->push, buf, strlen(buf), 0);
                 }
             }
         }
     }
 
     zmq_close(walnut->sub);
-    zmq_close(walnut->req);
+    zmq_close(walnut->push);
     zmq_ctx_destroy(walnut->context);
 }
 

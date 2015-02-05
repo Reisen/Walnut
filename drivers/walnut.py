@@ -32,9 +32,10 @@ class IRCMessage:
 
 class IPCMessage:
     def __init__(self, message):
-        target, args = message.payload.split(' ', 1)
-        self.target = target
-        self.args   = args
+        target, args = message.args[0], message.args[1:]
+        self.target  = target
+        self.args    = args
+        self.payload = message.payload
 
 
 def hook(event):
@@ -101,8 +102,8 @@ def walnut(plugin_name):
 
     while True:
         # Receive and parse messages (Just routing messages. Payload type is unknown)
-        message        = subscriber.recv()
-        message        = parse_payload(message.decode('UTF-8'))
+        message = subscriber.recv()
+        message = parse_payload(message.decode('UTF-8'))
 
         # Handle IRC namespaced messages.
         if message.tag.startswith('IRC'):
