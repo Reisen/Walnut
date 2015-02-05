@@ -10,8 +10,10 @@ hooks = collections.defaultdict(list)
 # Message Type Wrappers
 # ------------------------------------------------------------------------------
 class Message:
-    def __init__(self, tag, args, payload):
+    def __init__(self, tag, frm, to, args, payload):
         self.tag     = tag
+        self.frm     = frm
+        self.to      = to
         self.args    = args
         self.payload = payload
 
@@ -50,10 +52,12 @@ def hook(event):
 # Parsers for Messages.
 # ------------------------------------------------------------------------------
 def parse_payload(msg):
-    tag, arg = msg.split('(', 1)
-    arg, pay = arg.split(')', 1)
-    arg      = arg.split(',')
-    return (tag, arg, pay)
+    parts   = msg.split(' ')
+    frm, to = parts[1].split('!')
+    count   = int(parts[2])
+    args    = parts[3:3+count]
+    payload = " ".join(parts[3+count:])
+    return Message(parts[0], frm, to, args, payload)
 
 
 def parse_irc(msg):
@@ -92,27 +96,28 @@ def walnut(plugin_name):
         subscriber.setsockopt(zmq.SUBSCRIBE, "IRC:{}".format(name).encode('UTF-8'))
 
     # Requester, for outgoing messages.
-    requester = context.socket(zmq.REQ)
+    requester = context.socket(zmq.PUSH)
     requester.connect("tcp://0.0.0.0:9891")
 
     while True:
         # Receive and parse messages (Just routing messages. Payload type is unknown)
         message        = subscriber.recv()
-        tag, args, pay = parse_payload(message.decode('UTF-8'))
-        tag, command   = tag.split(':')
-        message        = Message(tag, args, pay)
+        message        = parse_payload(message.decode('UTF-8'))
 
         # Handle IRC namespaced messages.
-        if tag == 'IRC':
+        if message.tag.startswith('IRC'):
             # Parse the IRC message.
-            message = IRCMessage(message)
-            print('R: {}'.format(pay))
+            print('R: {}'.format(message.payload))
+            irc_message = IRCMessage(message)
 
             # Run plugins listening for commands in this namespace.
-            for f in hooks[command]:
-                response = f(message)
+            for f in hooks[irc_message.command]:
+                response = f(irc_message)
 
                 if response:
                     print('S: {}'.format(response))
-                    requester.send('WAR:FORWARD({},{}){}'.format(plugin_name, args[0], response).encode('UTF-8'))
-                    requester.recv()
+                    requester.send('IPC:CALL {}!{} 1 forward {}'.format(
+                        plugin_name,
+                        message.frm,
+                        response
+                    ).encode('UTF-8'))

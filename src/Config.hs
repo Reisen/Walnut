@@ -12,19 +12,19 @@ import Control.Monad
 import Control.Applicative
 
 {- Decodes from a JSON server value. Automatically handled by Aeson. -}
-data Server  = Server {
-    serverAddress :: String,
-    serverPort    :: Int,
-    serverNick    :: String,
-    serverPass    :: Maybe String,
-    serverChans   :: [String],
-    serverSSL     :: Maybe Bool
+data Server = Server {
+    serverAddress ∷ String,
+    serverPort    ∷ Int,
+    serverNick    ∷ String,
+    serverPass    ∷ Maybe String,
+    serverChans   ∷ [String],
+    serverSSL     ∷ Maybe Bool
     } deriving (Show)
 
 
 {- Decodes from a JSON config value. Automatically handled by Aeson. -}
-data Config  = Config {
-    servers :: [Server]
+data Config = Config {
+    servers ∷ [Server]
     } deriving (Show)
 
 

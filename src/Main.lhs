@@ -22,12 +22,8 @@ Imports
 > import Data.List (intersperse)
 > import Data.List.Split
 
-Qualified imports to prevent namespace clashes.
-
 > import qualified Data.ByteString.Char8 as C8
 > import qualified Data.ByteString.Lazy.Char8 as C8Lazy
-
-Imports from within the current code base.
 
 > import Config
 > import qualified IRC
@@ -93,14 +89,14 @@ calls to this plugin.
 >         parts     = splitOn " " s
 >         [from,to] = splitOn "!" (parts !! 1)
 >         count     = read (parts !! 2)
->         args      = (take count . drop 2) parts
->         payload   = last parts
+>         args      = (take count . drop 3) parts
+>         payload   = unwords . drop (count + 3) $ parts
 
 Also need a function that does the reverse, and packs messages into routing
 format for sending.
 
-> pack ∷ Message -> String
-> pack s = printf "%s %s!%s %d %s %s" a0 a1 a2 a3 a4 a5
+> pack ∷ Message → String
+> pack s = (unwords . words) $ printf "%s %s!%s %d %s %s" a0 a1 a2 a3 a4 a5
 >     where
 >         a0 = msgTag s
 >         a1 = msgFrom s
@@ -138,8 +134,8 @@ the push queue for the route thread to broadcast.
 >                 forever $ do
 >                     message ← liftIO (connectionGetLine 128 network)
 >                     let irc = IRC.parse (C8.unpack message)
->                         pay = (IRC.format . C8.unpack) message
->                         msg = Message ("IRC:" ++ (irc !! 1)) "core" "*" [] pay
+>                         pay = C8.unpack message
+>                         msg = Message ("IRC:" ++ (irc !! 1)) name "*" [] pay
 >
 >                     send push [] (C8.pack . pack $ msg)
 
@@ -149,7 +145,7 @@ IPC calls that ask us to forward.
 
 >         sub ← socket Sub
 >         connect sub "tcp://0.0.0.0:9890"
->         subscribe sub ""
+>         subscribe sub "IPC:CALL"
 
 Loop forever, parsing IPC calls and forwarding messages out into IRC networks
 when they are received.
@@ -157,7 +153,15 @@ when they are received.
 >         forever $ do
 >             line ← receive sub
 >             let parsed = parse (C8.unpack line)
->             liftIO(putStrLn $ show parsed)
+>                 args   = msgArgs parsed
+>
+>             case (args !! 0) of
+>                 "forward" →
+>                     case lookup (msgTo parsed) networks of
+>                         Just n  → liftIO (connectionPut n . IRC.format . msgPay $ parsed)
+>                         Nothing → pure ()
+>
+>                 method    → liftIO (putStrLn $ "No handler for IPC: " ++ method)
 
 
 
