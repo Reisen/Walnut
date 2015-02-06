@@ -7,11 +7,15 @@ import functools
 hooks = collections.defaultdict(list)
 
 
-# Message Type Wrappers
-# ------------------------------------------------------------------------------
 class Message:
-    def __init__(self, tag, frm, to, args, payload):
-        self.tag     = tag
+    def __init__(self, message):
+        parts   = message.split(b' ')
+        frm, to = parts[1].split(b'!')
+        count   = int(parts[2])
+        args    = parts[3:3+count]
+        payload = b' '.join(parts[3+count:])
+
+        self.tag     = parts[0]
         self.frm     = frm
         self.to      = to
         self.args    = args
@@ -20,9 +24,22 @@ class Message:
 
 class IRCMessage:
     def __init__(self, message):
-        prefix, command, args = parse_irc(message.payload)
+        msg = message.payload.strip().decode('UTF-8')
+        prefix, trailing = '', ''
+
+        if msg[0] == ':':
+            prefix, msg = msg[1:].split(' ', 1)
+
+        if ' :' in msg:
+            msg, trailing = msg.split(' :', 1)
+            args = msg.split()
+            args.append(trailing)
+        else:
+            args = msg.split()
+
+        self.parent  = message
         self.prefix  = prefix
-        self.command = command
+        self.command = args.pop(0)
         self.args    = args
 
         # Additional Useful Members. Not sure about this.
@@ -30,95 +47,54 @@ class IRCMessage:
             self.nick = self.prefix.split('!')[0]
 
 
-class IPCMessage:
-    def __init__(self, message):
-        target, args = message.args[0], message.args[1:]
-        self.target  = target
-        self.args    = args
-        self.payload = message.payload
+class Walnut:
+    def hook(event):
+        def register_hook(f):
+            @functools.wraps(f)
+            def handler(*args, **kwargs):
+                return f(*args, **kwargs)
 
+            hooks[event].append(handler)
+            return handler
 
-def hook(event):
-    def hook_method(f):
-        @functools.wraps(f)
-        def handler(*args, **kwargs):
-            return f(*args, **kwargs)
+        return register_hook
 
-        hooks[event].append(handler)
-        return handler
+    def send(message):
+        if message:
+            Walnut.push.send(message.encode('UTF-8'))
 
-    return hook_method
+    def ipc(source, destination, name, payload, *args):
+        Walnut.send('IPC:CALL {}!{} 1 {} {}'.format(
+            source,
+            destination,
+            name,
+            payload
+        ))
 
+    def fetch():
+        while True:
+            yield Message(Walnut.sub.recv())
 
-# Parsers for Messages.
-# ------------------------------------------------------------------------------
-def parse_payload(msg):
-    parts   = msg.split(' ')
-    frm, to = parts[1].split('!')
-    count   = int(parts[2])
-    args    = parts[3:3+count]
-    payload = " ".join(parts[3+count:])
-    return Message(parts[0], frm, to, args, payload)
+    def run(plugin_name):
+        context     = zmq.Context()
+        sub         = context.socket(zmq.SUB)
+        push        = context.socket(zmq.PUSH)
+        Walnut.push = push
+        Walnut.sub  = sub
+        sub.connect("tcp://0.0.0.0:9890")
+        push.connect("tcp://0.0.0.0:9891")
 
+        for name in hooks:
+            sub.setsockopt(zmq.SUBSCRIBE, "IRC:{}".format(name).encode('UTF-8'))
 
-def parse_irc(msg):
-    msg = msg.strip()
+        for message in Walnut.fetch():
+            if message.tag.startswith(b'IRC'):
+                message = IRCMessage(message)
 
-    # Defaults for prefix and trailing.
-    prefix, trailing = '', ''
-
-    # Find prefix if applicable.
-    if msg[0] == ':':
-        prefix, msg = msg[1:].split(' ', 1)
-
-    # Find trailing and args.
-    if msg.find(' :') != -1:
-        msg, trailing = msg.split(' :', 1)
-        args = msg.split()
-        args.append(trailing)
-    else:
-        args = msg.split()
-
-    # Find command.
-    command = args.pop(0)
-
-    return prefix, command, args
-
-
-# Plugin Start Point
-# ------------------------------------------------------------------------------
-def walnut(plugin_name):
-    context    = zmq.Context()
-
-    # Subscriber. Automatically subscribe to all relevant events.
-    subscriber = context.socket(zmq.SUB)
-    subscriber.connect("tcp://0.0.0.0:9890")
-    for name in hooks:
-        subscriber.setsockopt(zmq.SUBSCRIBE, "IRC:{}".format(name).encode('UTF-8'))
-
-    # Requester, for outgoing messages.
-    requester = context.socket(zmq.PUSH)
-    requester.connect("tcp://0.0.0.0:9891")
-
-    while True:
-        # Receive and parse messages (Just routing messages. Payload type is unknown)
-        message = subscriber.recv()
-        message = parse_payload(message.decode('UTF-8'))
-
-        # Handle IRC namespaced messages.
-        if message.tag.startswith('IRC'):
-            # Parse the IRC message.
-            print('R: {}'.format(message.payload))
-            irc_message = IRCMessage(message)
-
-            # Run plugins listening for commands in this namespace.
-            for f in hooks[irc_message.command]:
-                response = f(irc_message)
-
-                if response:
-                    print('S: {}'.format(response))
-                    requester.send('IPC:CALL {}!{} 1 forward {}'.format(
+                for result in filter(None.__ne__, (r(message) for r in hooks[message.command])):
+                    Walnut.ipc(
                         plugin_name,
-                        message.frm,
-                        response
-                    ).encode('UTF-8'))
+                        message.parent.frm.decode('UTF-8'),
+                        'forward',
+                        result
+                    )
