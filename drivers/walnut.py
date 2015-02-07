@@ -4,7 +4,9 @@ import collections
 import functools
 
 
-hooks = collections.defaultdict(list)
+hooks    = collections.defaultdict(list)
+methods  = {}
+commands = {}
 
 
 class Message:
@@ -48,6 +50,28 @@ class IRCMessage:
 
 
 class Walnut:
+    def method(name):
+        def register_method(f):
+            @functools.wraps(f)
+            def handler(*args, **kwargs):
+                return f(*args, **kwargs)
+
+            methods[name] = handler
+            return handler
+
+        return register_method
+
+    def command(name):
+        def register_command(f):
+            @functools.wraps(f)
+            def handler(*args, **kwargs):
+                return f(*args, **kwargs)
+
+            commands[name] = handler
+            return handler
+
+        return register_command
+
     def hook(event):
         def register_hook(f):
             @functools.wraps(f)
@@ -60,16 +84,19 @@ class Walnut:
         return register_hook
 
     def send(message):
+        print(message)
         if message:
             Walnut.push.send(message.encode('UTF-8'))
 
     def ipc(source, destination, name, payload, *args):
-        Walnut.send('IPC:CALL {}!{} 1 {} {}'.format(
+        Walnut.send(' '.join('IPC:CALL {}!{} {} {} {} {}'.format(
             source,
             destination,
+            len(args) + 1,
             name,
+            ' '.join(args),
             payload
-        ))
+        ).split()))
 
     def fetch():
         while True:
@@ -84,6 +111,7 @@ class Walnut:
         sub.connect("tcp://0.0.0.0:9890")
         push.connect("tcp://0.0.0.0:9891")
 
+        sub.setsockopt(zmq.SUBSCRIBE, "IPC:CALL".encode('UTF-8'))
         for name in hooks:
             sub.setsockopt(zmq.SUBSCRIBE, "IRC:{}".format(name).encode('UTF-8'))
 
@@ -98,3 +126,53 @@ class Walnut:
                         'forward',
                         result
                     )
+
+            elif message.tag.startswith(b'IPC:CALL'):
+                method = methods.get(message.args[0].decode('UTF-8'), lambda v: v)
+                method(message)
+
+
+@Walnut.method('command')
+def handle_command(message):
+    if message.to.decode('UTF-8') in commands:
+        # Extract and execute the command in question.
+        msg      = message.payload.decode('UTF-8')
+        pieces   = re.findall(r'\{0}(.*?)(?:\|\s*(?=\{0})|$)'.format('!'), msg)
+        _, *args = pieces[0].split(' ', 1)
+        result   = commands[message.to.decode('UTF-8')](
+            message.args[-1].decode('UTF-8'),
+            message.args[-2].decode('UTF-8'),
+            args[0] if args else ''
+        )
+
+        # Append the result to the end of the next command in the chain.
+        result = result if result else ''
+
+        # If there are no more commands, we forward the output to the origin of
+        # the command, otherwise we forward to the next command.
+        if len(pieces) > 1:
+            pieces[1] = pieces[1] + ' ' + result
+
+            Walnut.ipc(
+                'command',
+                pieces[1].split(' ', 1)[0],
+                'command',
+                '!' + ' | !'.join(pieces[1:]),
+                '0',
+                message.args[-3].decode('UTF-8'),
+                message.args[-2].decode('UTF-8'),
+                message.args[-1].decode('UTF-8')
+            )
+
+        else:
+            Walnut.ipc(
+                'proxy',
+                message.args[-3].decode('UTF-8'),
+                'forward',
+                'PRIVMSG {} :{}'.format(
+                    message.args[-2].decode('UTF-8'),
+                    result
+                )
+            )
+
+
