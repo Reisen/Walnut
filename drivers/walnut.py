@@ -11,15 +11,18 @@ commands = {}
 
 class Message:
     def __init__(self, message):
-        parts   = message.split(b' ')
-        frm, to = parts[1].split(b'!')
-        count   = int(parts[2])
-        args    = parts[3:3+count]
-        payload = b' '.join(parts[3+count:])
+        parts    = message.split(b' ')
+        frm, *to = parts[1].split(b'!')
+        count    = int(parts[2])
+        args     = parts[3:3+count]
+        payload  = b' '.join(parts[3+count:])
+
+        if len(to) != 1:
+            to = [b'']
 
         self.tag     = parts[0]
         self.frm     = frm
-        self.to      = to
+        self.to      = b''.join(to)
         self.args    = args
         self.payload = payload
 
@@ -130,49 +133,3 @@ class Walnut:
             elif message.tag.startswith(b'IPC:CALL'):
                 method = methods.get(message.args[0].decode('UTF-8'), lambda v: v)
                 method(message)
-
-
-@Walnut.method('command')
-def handle_command(message):
-    if message.to.decode('UTF-8') in commands:
-        # Extract and execute the command in question.
-        msg      = message.payload.decode('UTF-8')
-        pieces   = re.findall(r'\{0}(.*?)(?:\|\s*(?=\{0})|$)'.format('!'), msg)
-        _, *args = pieces[0].split(' ', 1)
-        result   = commands[message.to.decode('UTF-8')](
-            message.args[-1].decode('UTF-8'),
-            message.args[-2].decode('UTF-8'),
-            args[0] if args else ''
-        )
-
-        # Append the result to the end of the next command in the chain.
-        result = result if result else ''
-
-        # If there are no more commands, we forward the output to the origin of
-        # the command, otherwise we forward to the next command.
-        if len(pieces) > 1:
-            pieces[1] = pieces[1] + ' ' + result
-
-            Walnut.ipc(
-                'command',
-                pieces[1].split(' ', 1)[0],
-                'command',
-                '!' + ' | !'.join(pieces[1:]),
-                '0',
-                message.args[-3].decode('UTF-8'),
-                message.args[-2].decode('UTF-8'),
-                message.args[-1].decode('UTF-8')
-            )
-
-        else:
-            Walnut.ipc(
-                'proxy',
-                message.args[-3].decode('UTF-8'),
-                'forward',
-                'PRIVMSG {} :{}'.format(
-                    message.args[-2].decode('UTF-8'),
-                    result
-                )
-            )
-
-
