@@ -119,17 +119,21 @@ class Walnut:
             sub.setsockopt(zmq.SUBSCRIBE, "IRC:{}".format(name).encode('UTF-8'))
 
         for message in Walnut.fetch():
-            if message.tag.startswith(b'IRC'):
-                message = IRCMessage(message)
+            try:
+                if message.tag.startswith(b'IRC'):
+                    message = IRCMessage(message)
 
-                for result in filter(None.__ne__, (r(message) for r in hooks[message.command])):
-                    Walnut.ipc(
-                        plugin_name,
-                        message.parent.frm.decode('UTF-8'),
-                        'forward',
-                        result
-                    )
+                    for result in filter(None.__ne__, (r(message) for r in hooks[message.command])):
+                        Walnut.ipc(
+                            plugin_name,
+                            message.parent.frm.decode('UTF-8'),
+                            'forward',
+                            result
+                        )
 
-            elif message.tag.startswith(b'IPC:CALL'):
-                method = methods.get(message.args[0].decode('UTF-8'), lambda v: v)
-                method(message)
+                elif message.tag.startswith(b'IPC:CALL'):
+                    method = methods.get(message.args[0].decode('UTF-8'), lambda v: v)
+                    method(message)
+
+            except Exception as e:
+                print('Error handling message: {}', e)
