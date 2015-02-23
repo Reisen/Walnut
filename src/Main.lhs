@@ -12,6 +12,7 @@ Imports
 > import System.IO
 > import System.Timeout
 > import System.ZMQ4.Monadic
+> import Control.Exception
 > import Control.Applicative
 > import Control.Monad
 > import Control.Concurrent
@@ -107,6 +108,57 @@ format for sending.
 
 
 
+> bridgeO :: Either String Config → IO ()
+> bridgeO (Left err)   = putStrLn ("Error Parsing: " ++ err)
+> bridgeO (Right conf) = runZMQ $ do
+>     forM_ (servers conf) $ \address -> async $ do
+>         push ← socket Push
+>         connect push "tcp://0.0.0.0:9891"
+>         forever $ do
+>             (_, network) <- liftIO (IRC.connect address)
+>             forever $ do
+>                 message ← liftIO (connectionGetLine 128 network)
+>                 let irc = IRC.parse (C8.unpack message)
+>                     pay = C8.unpack message
+>                     msg = Message ("IRC:" ++ (irc !! 1)) (serverAddress address) "*" [] pay
+>
+>                 send push [] (C8.pack . pack $ msg)
+
+
+> bridgeR :: Either String Config → IO ()
+> bridgeR (Left err)   = putStrLn ("Error Parsing: " ++ err)
+> bridgeR (Right conf) = runZMQ $ do
+>     sync ← liftIO (newEmptyMVar)
+>     forM_ (servers conf) $ \network → do
+>         liftIO $ flip forkFinally (\_ -> pure ()) $ do
+>             (name, network) ← IRC.connect network
+>             forever $ do
+>                 message ← connectionGetLine 128 network
+>                 let irc = IRC.parse (C8.unpack message)
+>                     pay = C8.unpack message
+>                     cmd = irc !! 1
+>                     msg = Message ("IRC:" ++ cmd) name "*" [] pay
+>
+>                 putMVar sync msg
+>
+>     async $ do
+>         push ← socket Push
+>         connect push "tcp://0.0.0.0:9891"
+>         forever $ do
+>             out ← liftIO (takeMVar sync)
+>             send push [] (C8.pack . pack $ out)
+>
+>     sub ← socket Sub
+>     connect sub "tcp://0.0.0.0:9890"
+>     subscribe sub "IPC:CALL"
+>
+>     forever $ do
+>         line ← receive sub
+>         let parsed = parse (C8.unpack line)
+>             args   = msgArgs parsed
+>
+>         case (args !! 0) of
+>             method    → liftIO (putStrLn $ "No handler for IPC: " ++ method)
 
 Now we can use these in the main plugin thread itself.
 
