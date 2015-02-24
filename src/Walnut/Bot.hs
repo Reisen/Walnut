@@ -14,33 +14,29 @@ import Walnut.Config
 
 data Worker a = Worker
     { workerID :: ThreadId
-    , workerMV :: MVar ()
-    , workerIN :: a }
+    , workerMV :: MVar (Maybe a) }
 
 
-worker :: a → (a → IO ()) → IO (Worker a)
+worker :: a → (a → IO b) → IO (Worker b)
 worker input handler = do
     workmv ← newEmptyMVar
-    thread ← forkIO $ do
+    thread ← forkIO $
         putMVar workmv =<< catch
-            (handler input)
-            (\e → (putStrLn . show) (e :: SomeException))
+            (handler input >>= pure . Just)
+            (\(e :: SomeException) → pure Nothing)
 
     pure Worker
         { workerID = thread
-        , workerMV = workmv
-        , workerIN = input }
+        , workerMV = workmv }
 
 
-pool :: forall a. [a] → (a → IO ()) → IO ()
-pool inputs handler = forM inputs (flip worker handler) >>= monitor
+pool :: forall a. [a] → (a → IO a) → IO ()
+pool inputs handler = forM inputs (`worker` handler) >>= monitor
     where monitor :: [Worker a] → IO ()
           monitor workers = do
-              threadDelay 64000000
-              workers ← forM workers $ \w → do
+              threadDelay 1000000
+              (=<<) monitor $ forM workers $ \w → do
                   output ← tryTakeMVar (workerMV w)
                   case output of
-                      Just _  → worker (workerIN w) handler
-                      Nothing → pure w
-
-              monitor workers
+                      Just (Just v) → worker v handler
+                      otherwise     → pure w

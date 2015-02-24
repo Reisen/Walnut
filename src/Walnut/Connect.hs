@@ -28,7 +28,7 @@ data Conn = Conn
 connect :: Server → IO Conn
 connect server = do
     context ← initConnectionContext
-    network ← connectTo context $ ConnectionParams
+    network ← connectTo context ConnectionParams
         { connectionHostname  = serverHost server
         , connectionPort      = fromIntegral (serverPort server)
         , connectionUseSecure = Just $ TLSSettingsSimple True False True
@@ -39,10 +39,10 @@ connect server = do
 
     -- Send User Registration & Join Channels
     let nick = serverNick server
-    connectionPut network . endline $ ("NICK " ++ nick)
-    connectionPut network . endline $ (printf "USER %s %s %s :%s" nick nick nick nick)
+    connectionPut network . endline $ "NICK " ++ nick
+    connectionPut network . endline $ printf "USER %s %s %s :%s" nick nick nick nick
     forM_ (serverChan server) $ connectionPut network . endline . ("JOIN "++)
-    pure $ Conn
+    pure Conn
         { connContext = context
         , connNetwork = network }
 

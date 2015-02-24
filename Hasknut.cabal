@@ -20,6 +20,7 @@ executable Hasknut
     OverloadedStrings,
     ScopedTypeVariables
   build-depends:
+    attoparsec,
     aeson,
     base >=4.7 && <4.8,
     bytestring,
