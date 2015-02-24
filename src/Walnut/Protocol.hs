@@ -5,7 +5,7 @@ module Walnut.Protocol
     ) where
 
 import Control.Applicative
-import Data.ByteString.Char8 as BC
+import Data.ByteString.Char8 as BC hiding (map)
 import Data.Attoparsec.ByteString.Char8 as ABC
 
 
@@ -14,34 +14,60 @@ data Message = Message
     , messageFrom    :: String
     , messageTo      :: String
     , messageArgs    :: [String]
-    , messagePayload :: String }
+    , messagePayload :: String
+    } deriving (Show)
 
 
 parseTag :: Parser ByteString
-parseTag = takeTill (not . isSpace)
+parseTag = takeTill isSpace
 
 
 parseLocations :: Parser (ByteString, ByteString)
 parseLocations = do
+    char ' '
     from ← takeTill (=='!')
     char '!'
-    to ← takeTill (==' ')
+    to ← takeTill isSpace
     pure (from, to)
+
+
+parseArgCount :: Parser Int
+parseArgCount = char ' ' >> decimal
+
+
+parseArgs :: Int → Parser [ByteString]
+parseArgs 0 = pure []
+parseArgs n = do
+    char ' '
+    arg  ← takeTill isSpace
+    rest ← parseArgs (n - 1)
+    pure (arg : rest)
+
+
+parsePayload :: Parser ByteString
+parsePayload = char ' ' >> takeByteString
 
 
 parseMessage :: Parser Message
 parseMessage = do
     tag        ← parseTag
     (from, to) ← parseLocations
-    args       ← parseArgs
+    argCount   ← parseArgCount
+    args       ← parseArgs argCount
     payload    ← parsePayload
     pure Message
-        { messageTag     = tag
-        , messageFrom    = from
-        , messageTo      = to
-        , messageArgs    = args
-        , messagePayload = payload }
+        { messageTag     = unpack tag
+        , messageFrom    = unpack from
+        , messageTo      = unpack to
+        , messageArgs    = map unpack args
+        , messagePayload = unpack payload }
 
 
-decode :: String → Maybe Message
-decode = parseOnly parseMessage
+decode :: ByteString → Maybe Message
+decode line = case parseOnly parseMessage line of
+    Left _  → Nothing
+    Right v → Just v
+
+
+encode :: a
+encode = undefined
