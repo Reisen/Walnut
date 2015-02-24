@@ -23,7 +23,7 @@ worker input handler = do
     thread ← forkIO $
         putMVar workmv =<< catch
             (handler input >>= pure . Just)
-            (\(e :: SomeException) → pure Nothing)
+            (\(e :: SomeException) → print e >> pure Nothing)
 
     pure Worker
         { workerID = thread

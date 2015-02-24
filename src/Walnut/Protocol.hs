@@ -1,11 +1,13 @@
 module Walnut.Protocol
-    ( Message
+    ( Message(..)
     , encode
     , decode
     ) where
 
+import Data.List
+import Text.Printf
 import Control.Applicative
-import Data.ByteString.Char8 as BC hiding (map)
+import Data.ByteString.Char8 as BC (ByteString, pack, unpack)
 import Data.Attoparsec.ByteString.Char8 as ABC
 
 
@@ -65,9 +67,17 @@ parseMessage = do
 
 decode :: ByteString → Maybe Message
 decode line = case parseOnly parseMessage line of
-    Left _  → Nothing
-    Right v → Just v
+    Right v   → Just v
+    otherwise → Nothing
 
 
-encode :: a
-encode = undefined
+encode :: Message → ByteString
+encode Message
+    { messageTag     = tag
+    , messageFrom    = from
+    , messageTo      = to
+    , messageArgs    = args
+    , messagePayload = payload } =
+    let count = length args
+        cargs = unwords args in
+        pack (printf "%s %s!%s %d %s %s" tag from to count cargs payload)

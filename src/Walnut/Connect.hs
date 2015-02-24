@@ -7,8 +7,10 @@ module Walnut.Connect
     , endline
     , sendIRC
     , recvIRC
+    , convIRC
     ) where
 
+import Data.List
 import System.IO
 import Text.Printf
 import Text.Regex.PCRE
@@ -18,6 +20,7 @@ import Network.Connection
 import qualified Data.ByteString.Char8 as BC
 
 import Walnut.Config
+import Walnut.Protocol
 
 
 data Conn = Conn
@@ -58,3 +61,12 @@ sendIRC c = connectionPut (connNetwork c) . endline
 recvIRC :: Conn → IO [String]
 recvIRC c = (split . BC.unpack) `fmap` connectionGetLine 128 (connNetwork c)
     where split = (tail . head) . (=~ "^(:\\S+)?\\s*(\\S+)\\s+(.*)\\r?$")
+
+
+convIRC :: [String] → Maybe Message
+convIRC msg@[prefix, command, args] = Just Message
+    { messageTag     = "IRC:" ++ command
+    , messageFrom    = ""
+    , messageTo      = ""
+    , messageArgs    = []
+    , messagePayload = unwords msg }
