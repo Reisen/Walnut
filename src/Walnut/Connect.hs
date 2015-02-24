@@ -10,8 +10,6 @@ module Walnut.Connect
     , convIRC
     ) where
 
-import Data.List
-import System.IO
 import Text.Printf
 import Text.Regex.PCRE
 import Control.Monad
@@ -64,9 +62,11 @@ recvIRC c = (split . BC.unpack) `fmap` connectionGetLine 128 (connNetwork c)
 
 
 convIRC :: [String] → Maybe Message
-convIRC msg@[prefix, command, args] = Just Message
+convIRC msg@[_, command, _] = Just Message
     { messageTag     = "IRC:" ++ command
-    , messageFrom    = ""
-    , messageTo      = ""
+    , messageFrom    = "*"
+    , messageTo      = "*"
     , messageArgs    = []
     , messagePayload = unwords msg }
+
+convIRC _ = Nothing

@@ -9,8 +9,6 @@ import Control.Exception
 import Control.Concurrent
 import Control.Applicative
 
-import Walnut.Config
-
 
 data Worker a = Worker
     { workerID :: ThreadId
@@ -39,4 +37,4 @@ pool inputs handler = forM inputs (`worker` handler) >>= monitor
                   output ← tryTakeMVar (workerMV w)
                   case output of
                       Just (Just v) → worker v handler
-                      otherwise     → pure w
+                      _             → pure w

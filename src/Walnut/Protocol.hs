@@ -2,9 +2,9 @@ module Walnut.Protocol
     ( Message(..)
     , encode
     , decode
+    , setSender
     ) where
 
-import Data.List
 import Text.Printf
 import Control.Applicative
 import Data.ByteString.Char8 as BC (ByteString, pack, unpack)
@@ -20,16 +20,20 @@ data Message = Message
     } deriving (Show)
 
 
+setSender :: String → Message → Message
+setSender s m = m { messageFrom = s }
+
+
 parseTag :: Parser ByteString
 parseTag = takeTill isSpace
 
 
 parseLocations :: Parser (ByteString, ByteString)
 parseLocations = do
-    char ' '
+    _    ← char ' '
     from ← takeTill (=='!')
-    char '!'
-    to ← takeTill isSpace
+    _    ← char '!'
+    to   ← takeTill isSpace
     pure (from, to)
 
 
@@ -40,7 +44,7 @@ parseArgCount = char ' ' >> decimal
 parseArgs :: Int → Parser [ByteString]
 parseArgs 0 = pure []
 parseArgs n = do
-    char ' '
+    _    ← char ' '
     arg  ← takeTill isSpace
     rest ← parseArgs (n - 1)
     pure (arg : rest)
@@ -67,8 +71,8 @@ parseMessage = do
 
 decode :: ByteString → Maybe Message
 decode line = case parseOnly parseMessage line of
-    Right v   → Just v
-    otherwise → Nothing
+    Right v → Just v
+    _       → Nothing
 
 
 encode :: Message → ByteString
@@ -78,6 +82,6 @@ encode Message
     , messageTo      = to
     , messageArgs    = args
     , messagePayload = payload } =
-    let count = length args
-        cargs = unwords args in
-        pack (printf "%s %s!%s %d %s %s" tag from to count cargs payload)
+    let argsc = length args
+        argsv = unwords args in
+        pack (printf "%s %s!%s %d %s %s" tag from to argsc argsv payload)
