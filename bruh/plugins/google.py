@@ -1,4 +1,5 @@
 import json
+from bruh import command
 from random import randint
 from urllib.parse import quote_plus, unquote_plus
 from urllib.request import urlopen, Request
@@ -6,15 +7,15 @@ from html.parser import HTMLParser
 from drivers.walnut import Walnut
 
 
-@Walnut.command('google')
-@Walnut.command('g')
-def google(user, chan, message):
-    if not message:
+@command('google')
+@command('g')
+def google(irc):
+    if not irc.message:
         return ".g <search terms>"
 
     # Build the request. The Referer is required because of googles ToS.
     request = Request(
-        'https://ajax.googleapis.com/ajax/services/search/web?v=1.0&q={}'.format(quote_plus(message)),
+        'https://ajax.googleapis.com/ajax/services/search/web?v=1.0&q={}'.format(quote_plus(irc.message)),
         headers = {
             'Referer': 'http://github.com/Reisen/Walnut',
             'User-Agent': 'Mozilla/5.0 (X11; U; Linux i686) Gecko/20071127 Firefox/2.0.0.11'
@@ -53,17 +54,17 @@ def google(user, chan, message):
         return 'No results found.'
 
 
-@Walnut.command('image')
-@Walnut.command('im')
-@Walnut.command('i')
-def image(user, chan, message):
-    if not message:
+@command('image')
+@command('im')
+@command('i')
+def image(irc):
+    if not irc.message:
         return "Syntax: .image <search terms>"
 
     url = 'https://ajax.googleapis.com/ajax/services/search/images?v=1.0&q={}&safe=off'
 
     # Searches are returned as JSON so we need to turn that into a dictionary
-    query = json.loads(urlopen(url.format(quote_plus(message)), timeout = 7).read().decode('UTF-8'))
+    query = json.loads(urlopen(url.format(quote_plus(irc.message)), timeout = 7).read().decode('UTF-8'))
 
     if query['responseStatus'] != 200:
         return query['responseStatus']

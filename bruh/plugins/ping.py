@@ -1,4 +1,10 @@
+from bruh import command
 from drivers.walnut import Walnut
+
+
+@command('echo')
+def echo(irc):
+    return 'echo> ' + irc.message
 
 
 @Walnut.hook('INVITE')

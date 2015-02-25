@@ -6,7 +6,6 @@ import functools
 
 hooks    = collections.defaultdict(list)
 methods  = {}
-commands = {}
 
 
 class Message:
@@ -20,10 +19,10 @@ class Message:
         if len(to) != 1:
             to = [b'']
 
-        self.tag     = parts[0]
-        self.frm     = frm
-        self.to      = b''.join(to)
-        self.args    = args
+        self.tag     = parts[0].decode('UTF-8')
+        self.frm     = frm.decode('UTF-8')
+        self.to      = b''.join(to).decode('UTF-8')
+        self.args    = list(map(lambda v: v.decode('UTF-8'), args))
         self.payload = payload
 
 
@@ -63,17 +62,6 @@ class Walnut:
             return handler
 
         return register_method
-
-    def command(name):
-        def register_command(f):
-            @functools.wraps(f)
-            def handler(*args, **kwargs):
-                return f(*args, **kwargs)
-
-            commands[name] = handler
-            return handler
-
-        return register_command
 
     def hook(event):
         def register_hook(f):
@@ -120,20 +108,21 @@ class Walnut:
 
         for message in Walnut.fetch():
             try:
-                if message.tag.startswith(b'IRC'):
+                if message.tag.startswith('IRC'):
                     message = IRCMessage(message)
 
                     for result in filter(None.__ne__, (r(message) for r in hooks[message.command])):
                         Walnut.ipc(
                             plugin_name,
-                            message.parent.frm.decode('UTF-8'),
+                            message.parent.frm,
                             'forward',
                             result
                         )
 
-                elif message.tag.startswith(b'IPC:CALL'):
-                    method = methods.get(message.args[0].decode('UTF-8'), lambda v: v)
+                elif message.tag.startswith('IPC:CALL'):
+                    method = methods.get(message.args[0], lambda v: v)
                     method(message)
 
             except Exception as e:
-                print('Error handling message: {}', e)
+                import traceback
+                traceback.print_exc()
