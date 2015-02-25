@@ -34,7 +34,6 @@ core (Right c) =
             modifyIORef opened (replace (serverHost network) conn)
             handle (\(e :: SomeException) → print e >> pure network) $ forever $ do
                 incoming ← recvIRC conn
-                putStrLn (show incoming)
                 case encode . setSender (serverHost network) <$> convIRC incoming of
                     Just v  → send sink [] v
                     Nothing → pure ()
