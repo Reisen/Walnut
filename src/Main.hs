@@ -28,6 +28,7 @@ core (Right c) =
         pool (servers c) $ \network →
         withSocket ctxt Push $ \sink →
         withSocket ctxt Sub  $ \pull → do
+            putStrLn ("Network Thread Started: " ++ serverHost network)
             connect sink "tcp://0.0.0.0:9891"
             connect pull "tcp://0.0.0.0:9890"
             conn ← Walnut.Connect.connect network

@@ -1,6 +1,7 @@
 import re
 import zmq
 import collections
+import traceback
 import functools
 
 
@@ -111,18 +112,29 @@ class Walnut:
                 if message.tag.startswith('IRC'):
                     message = IRCMessage(message)
 
-                    for result in filter(None.__ne__, (r(message) for r in hooks[message.command])):
-                        Walnut.ipc(
-                            plugin_name,
-                            message.parent.frm,
-                            'forward',
-                            result
-                        )
+                    for hook in hooks[message.command]:
+                        try:
+                            result = hook(message)
+                            if not result:
+                                continue
+
+                            Walnut.ipc(
+                                plugin_name,
+                                message.parent.frm,
+                                'forward',
+                                result
+                            )
+
+                        except Exception as e:
+                            traceback.print_exc()
 
                 elif message.tag.startswith('IPC:CALL'):
-                    method = methods.get(message.args[0], lambda v: v)
-                    method(message)
+                    try:
+                        method = methods.get(message.args[0], lambda v: v)
+                        method(message)
 
-            except Exception as e:
-                import traceback
+                    except Exception as e:
+                        traceback.print_exc()
+
+            except:
                 traceback.print_exc()

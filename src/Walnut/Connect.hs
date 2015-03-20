@@ -10,6 +10,7 @@ module Walnut.Connect
     , convIRC
     ) where
 
+import Data.Maybe
 import Text.Printf
 import Text.Regex.PCRE
 import Control.Monad
@@ -26,13 +27,17 @@ data Conn = Conn
     , connNetwork :: Connection }
 
 
+tls :: TLSSettings
+tls = TLSSettingsSimple True False True
+
+
 connect :: Server → IO Conn
 connect server = do
     context ← initConnectionContext
     network ← connectTo context ConnectionParams
         { connectionHostname  = serverHost server
         , connectionPort      = fromIntegral (serverPort server)
-        , connectionUseSecure = Just $ TLSSettingsSimple True False True
+        , connectionUseSecure = if fromMaybe False (serverSSL server) then Just tls else Nothing
         , connectionUseSocks  = Nothing }
 
     -- Send Server Password
