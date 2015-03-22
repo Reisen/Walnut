@@ -118,12 +118,22 @@ class Walnut:
                             if not result:
                                 continue
 
-                            Walnut.ipc(
-                                plugin_name,
-                                message.parent.frm,
-                                'forward',
-                                result
-                            )
+                            if isinstance(result, str):
+                                Walnut.ipc(
+                                    plugin_name,
+                                    message.parent.frm,
+                                    'forward',
+                                    result
+                                )
+                                continue
+
+                            for r in result:
+                                Walnut.ipc(
+                                    plugin_name,
+                                    message.parent.frm,
+                                    'forward',
+                                    r
+                                )
 
                         except Exception as e:
                             traceback.print_exc()
