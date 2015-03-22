@@ -1,0 +1,13 @@
+{
+    "servers": [
+        {
+            "address": "irc.rizon.net",
+            "nick":    "bruh",
+            "port":    6667,
+            "ssl":     false,
+            "chans":   [
+                "#walnut"
+            ]
+        }
+    ]
+}
