@@ -100,6 +100,7 @@ class Walnut:
         push        = context.socket(zmq.PUSH)
         Walnut.push = push
         Walnut.sub  = sub
+        Walnut.name = plugin_name
         sub.connect("tcp://0.0.0.0:9890")
         push.connect("tcp://0.0.0.0:9891")
 
@@ -114,25 +115,25 @@ class Walnut:
 
                     for hook in hooks[message.command]:
                         try:
-                            result = hook(message)
-                            if not result:
+                            results = hook(message)
+                            if not results:
                                 continue
 
-                            if isinstance(result, str):
+                            if isinstance(results, str):
+                                Walnut.ipc(
+                                    plugin_name,
+                                    message.parent.frm,
+                                    'forward',
+                                    results
+                                )
+                                continue
+
+                            for result in results:
                                 Walnut.ipc(
                                     plugin_name,
                                     message.parent.frm,
                                     'forward',
                                     result
-                                )
-                                continue
-
-                            for r in result:
-                                Walnut.ipc(
-                                    plugin_name,
-                                    message.parent.frm,
-                                    'forward',
-                                    r
                                 )
 
                         except Exception as e:
