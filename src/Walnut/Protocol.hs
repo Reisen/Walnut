@@ -50,9 +50,7 @@ parseArgs n = do
 
 
 parsePayload :: Parser ByteString
-parsePayload = do
-    _ ← takeTill (not . isSpace)
-    takeByteString
+parsePayload = takeTill (not . isSpace) >> takeByteString
 
 
 parseMessage :: Parser Message
