@@ -25,11 +25,9 @@ core (Right c) =
     opened ← newIORef []
     _ ← forkIO $
         pool (servers c) $ \network →
-        withSocket ctxt Push $ \sink →
-        withSocket ctxt Sub  $ \pull → do
+        withSocket ctxt Push $ \sink → do
             putStrLn ("Network Thread Started: " ++ serverHost network)
             connect sink "tcp://0.0.0.0:9891"
-            connect pull "tcp://0.0.0.0:9890"
             conn ← Walnut.Connect.connect network
             modifyIORef opened (replace (serverHost network) conn)
             handle (\(e :: SomeException) → print e >> pure network) $ forever $ do
@@ -48,15 +46,13 @@ core (Right c) =
             subscribe pull "IRC:PING"
             forever $ do
                 incoming ← decode <$> receive pull
-                print incoming
                 case incoming of
-                    Just m → do
-                        send sink [] $ encode Message
-                            { messageTag     = "IPC:CALL"
-                            , messageFrom    = "ping"
-                            , messageTo      = messageFrom m
-                            , messageArgs    = ["forward"]
-                            , messagePayload = "PONG :" ++ (drop 6 (messagePayload m)) }
+                    Just m → send sink [] $ encode Message
+                        { messageTag     = "IPC:CALL"
+                        , messageFrom    = "ping"
+                        , messageTo      = messageFrom m
+                        , messageArgs    = ["forward"]
+                        , messagePayload = "PONG :" ++ (drop 6 (messagePayload m)) }
 
                     Nothing → pure ()
 
