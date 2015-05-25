@@ -23,7 +23,7 @@ executable Hasknut
   build-depends:
     attoparsec,
     aeson,
-    base >=4.7 && <4.8,
+    base,
     bytestring,
     connection,
     data-default,

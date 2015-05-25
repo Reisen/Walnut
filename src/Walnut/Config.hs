@@ -5,7 +5,6 @@ module Walnut.Config
 
 import Data.Aeson
 import Control.Monad
-import Control.Applicative
 
 
 data Server = Server

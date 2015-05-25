@@ -6,7 +6,6 @@ import System.ZMQ4
 import Control.Monad
 import Control.Exception
 import Control.Concurrent
-import Control.Applicative
 import qualified Data.ByteString.Lazy.Char8 as BLC
 
 import Walnut.Bot
@@ -37,6 +36,28 @@ core (Right c) =
                 incoming ← recvIRC conn
                 case encode . setSender (serverHost network) <$> convIRC incoming of
                     Just v  → send sink [] v
+                    Nothing → pure ()
+
+    -- TODO. Make plugins loadable and just spawn these as wrappers around a
+    -- small callable function instead.
+    _ ← forkIO $
+        withSocket ctxt Push $ \sink →
+        withSocket ctxt Sub  $ \pull → do
+            connect sink "tcp://0.0.0.0:9891"
+            connect pull "tcp://0.0.0.0:9890"
+            subscribe pull "IRC:PING"
+            forever $ do
+                incoming ← decode <$> receive pull
+                print incoming
+                case incoming of
+                    Just m → do
+                        send sink [] $ encode Message
+                            { messageTag     = "IPC:CALL"
+                            , messageFrom    = "ping"
+                            , messageTo      = messageFrom m
+                            , messageArgs    = ["forward"]
+                            , messagePayload = "PONG :" ++ (drop 6 (messagePayload m)) }
+
                     Nothing → pure ()
 
     bind tap "tcp://0.0.0.0:9891"

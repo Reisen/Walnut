@@ -14,7 +14,6 @@ import Data.Maybe
 import Text.Printf
 import Text.Regex.PCRE
 import Control.Monad
-import Control.Applicative
 import Network.Connection
 import qualified Data.ByteString.Char8 as BC
 

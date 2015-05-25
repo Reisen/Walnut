@@ -6,7 +6,6 @@ module Walnut.Protocol
     ) where
 
 import Text.Printf
-import Control.Applicative
 import Data.ByteString.Char8 as BC (ByteString, pack, unpack)
 import Data.Attoparsec.ByteString.Char8 as ABC
 
@@ -51,7 +50,9 @@ parseArgs n = do
 
 
 parsePayload :: Parser ByteString
-parsePayload = char ' ' >> takeByteString
+parsePayload = do
+    _ ← takeTill (not . isSpace)
+    takeByteString
 
 
 parseMessage :: Parser Message

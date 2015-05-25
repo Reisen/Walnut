@@ -7,7 +7,6 @@ module Walnut.Bot
 import Control.Monad
 import Control.Exception
 import Control.Concurrent
-import Control.Applicative
 
 
 data Worker a = Worker
