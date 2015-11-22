@@ -1,3 +1,2 @@
-#!/usr/bin/env runghc
-import Distribution.Make (defaultMain)
+import Distribution.Simple
 main = defaultMain

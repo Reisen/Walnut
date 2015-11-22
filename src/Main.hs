@@ -1,72 +1,42 @@
 module Main where
 
-import Data.IORef
-import Data.Aeson (eitherDecode)
-import System.ZMQ4
-import Control.Monad
-import Control.Exception
-import Control.Concurrent
-import qualified Data.ByteString.Lazy.Char8 as BLC
+--------------------------------------------------------------------------------
+import           Nanomsg
+import           Data.Maybe               (fromMaybe)
+import           Data.MessagePack
+import           Control.Monad            (forM_)
+import           Control.Concurrent       (threadDelay)
+import qualified Data.ByteString.Char8    as C
+import           Control.Monad.State.Lazy (runStateT, liftIO, gets, get, put, modify, lift)
 
-import Walnut.Bot
-import Walnut.Util
-import Walnut.Config
-import Walnut.Protocol
-import Walnut.Connect hiding (connect)
-import qualified Walnut.Connect (connect)
+--------------------------------------------------------------------------------
+import           Plugin
+import           Walnut
 
 
-core :: Either String Config → IO ()
-core (Left  e) = putStrLn ("Error Parsing: " ++ e)
-core (Right c) =
-    withContext          $ \ctxt →
-    withSocket ctxt Pull $ \tap  →
-    withSocket ctxt Pub  $ \pub  → forever $ do
-    opened ← newIORef []
-    _ ← forkIO $
-        pool (servers c) $ \network →
-        withSocket ctxt Push $ \sink → do
-            putStrLn ("Network Thread Started: " ++ serverHost network)
-            connect sink "tcp://0.0.0.0:9891"
-            conn ← Walnut.Connect.connect network
-            modifyIORef opened (replace (serverHost network) conn)
-            handle (\(e :: SomeException) → print e >> pure network) $ forever $ do
-                incoming ← recvIRC conn
-                case encode . setSender (serverHost network) <$> convIRC incoming of
-                    Just v  → send sink [] v
-                    Nothing → pure ()
 
-    -- TODO. Make plugins loadable and just spawn these as wrappers around a
-    -- small callable function instead.
-    _ ← forkIO $
-        withSocket ctxt Push $ \sink →
-        withSocket ctxt Sub  $ \pull → do
-            connect sink "tcp://0.0.0.0:9891"
-            connect pull "tcp://0.0.0.0:9890"
-            subscribe pull "IRC:PING"
-            forever $ do
-                incoming ← decode <$> receive pull
-                case incoming of
-                    Just m → send sink [] $ encode Message
-                        { messageTag     = "IPC:CALL"
-                        , messageFrom    = "ping"
-                        , messageTo      = messageFrom m
-                        , messageArgs    = ["forward"]
-                        , messagePayload = "PONG :" ++ (drop 6 (messagePayload m)) }
+--------------------------------------------------------------------------------
+main :: IO ((), StateW)
+main =
+    withSocket Pub $ \s ->
+    withSocket Pull $ \p -> do
+        bind s "tcp://*:5005"
+        bind p "tcp://*:5006"
+        runStateT loop StateW
+            { statePlugins = map (uncurry Plugin) plugins
+            , statePublish = s
+            , stateListen  = p
+            }
 
-                    Nothing → pure ()
+        where
+            loop :: Walnut ()
+            loop = do
+                listen   <- gets stateListen
+                publish  <- gets statePublish
+                plugins  <- gets statePlugins
+                message  <- lift (recv listen)
+                let reply = maybe [] (`runPlugins` plugins) (unpackMessage message)
 
-    bind tap "tcp://0.0.0.0:9891"
-    bind pub "tcp://0.0.0.0:9890"
-    forever $ do
-        cns ← readIORef opened
-        msg ← receive tap
-        send pub [] msg
-        maybe (pure ()) (uncurry sendIRC) $ do
-            dsg ← decode msg
-            con ← lookup (messageTo dsg) cns
-            pure (con, messagePayload dsg)
-
-
-main :: IO ()
-main = readFile "config" >>= core . eitherDecode . BLC.pack
+                flip (>>) loop $ lift (
+                    forM_ reply $ \r ->
+                        send publish (packMessage r))

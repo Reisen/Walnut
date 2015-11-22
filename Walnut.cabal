@@ -1,0 +1,27 @@
+name:                Walnut
+version:             0.1.0.0
+license:             MIT
+license-file:        LICENSE
+author:              Reisen
+maintainer:          reisen@morphism.org
+build-type:          Simple
+cabal-version:       >=1.10
+
+executable Walnut
+  main-is:             Main.hs
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
+  default-extensions:  RecordWildCards,
+                       RankNTypes,
+                       GADTs,
+                       PatternGuards,
+                       ViewPatterns
+
+  build-depends:       base >=4.8 && <4.9,
+                       cereal,
+                       nanomsg-haskell >=0.2 && <0.3,
+                       messagepack >=0.5 && <0.6,
+                       mtl >=2.2 && <2.3,
+                       bytestring >=0.10 && <0.11
+
