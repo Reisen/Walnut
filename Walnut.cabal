@@ -19,7 +19,7 @@ executable Walnut
                        ViewPatterns
 
   build-depends:       base >=4.8 && <4.9,
-                       cereal,
+                       cereal >= 0.5 && < 0.6,
                        nanomsg-haskell >=0.2 && <0.3,
                        messagepack >=0.5 && <0.6,
                        mtl >=2.2 && <2.3,
