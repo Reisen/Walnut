@@ -2,10 +2,28 @@ require "socket"
 
 module Net
     class IRC < Connection
-        def connect(server : String, port : Int32)
+        def connect(server, port, options)
+            # Store details and connect to server.
             @server = server
-            @port   = port
-            @conn   = TCPSocket.new server, port
+            @port = port
+            @options = options
+            @conn = TCPSocket.new server, port
+
+            # Extract IRC specific options.
+            nick = options[:nick]
+            chan = options[:chan]
+
+            # Send Connection details.
+            @conn.try do |conn|
+                conn.puts "USER #{nick} #{nick} #{nick} :#{nick}"
+                conn.puts "NICK #{nick}"
+
+                if chan.is_a?(Array(String))
+                    chan.each do |chan|
+                        conn.puts "JOIN #{chan}"
+                    end
+                end
+            end
         end
 
         def send(message)
