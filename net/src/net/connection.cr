@@ -4,5 +4,6 @@ module Net
         abstract def disconnect
         abstract def send
         abstract def recv
+        abstract def conn
     end
 end

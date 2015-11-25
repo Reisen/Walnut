@@ -2,26 +2,24 @@ require "socket"
 
 module Net
     class IRC < Connection
-        def connect(server, port, options)
-            # Store details and connect to server.
-            @server = server
-            @port = port
-            @options = options
-            @conn = TCPSocket.new server, port
+        def connect(options)
+            # Extract options.
+            addr = options.addr
+            port = options.port
+            nick = options.nick
+            chan = options.chan as Array(String)
 
-            # Extract IRC specific options.
-            nick = options[:nick]
-            chan = options[:chan]
+            # Connect.
+            @opts = options
+            @conn = TCPSocket.new addr, port
 
             # Send Connection details.
             @conn.try do |conn|
                 conn.puts "USER #{nick} #{nick} #{nick} :#{nick}"
                 conn.puts "NICK #{nick}"
 
-                if chan.is_a?(Array(String))
-                    chan.each do |chan|
-                        conn.puts "JOIN #{chan}"
-                    end
+                chan.each do |chan|
+                    conn.puts "JOIN #{chan}"
                 end
             end
         end
@@ -34,11 +32,12 @@ module Net
 
         def recv
             @conn.try do |conn|
-                loop do
-                    line = conn.gets
-                    puts line
-                end
+                conn.gets
             end
+        end
+
+        def conn
+            @conn
         end
     end
 end
