@@ -1,0 +1,20 @@
+{
+    "irc": [
+        {
+            "addr": "irc.rizon.net",
+            "port": 6667,
+            "nick": "warlus",
+            "chan": [
+                "#walnut"
+            ]
+        },
+        {
+            "addr": "irc.freenode.org",
+            "port": 6667,
+            "nick": "wargus",
+            "chan": []
+        }
+    ],
+
+    "xmpp": []
+}
