@@ -16,7 +16,8 @@ executable Walnut
                        RankNTypes,
                        GADTs,
                        PatternGuards,
-                       ViewPatterns
+                       ViewPatterns,
+                       InstanceSigs
 
   build-depends:       base >=4.8 && <4.9,
                        cereal >= 0.5 && < 0.6,

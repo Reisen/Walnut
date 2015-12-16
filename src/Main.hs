@@ -12,6 +12,8 @@ import           Control.Monad.State.Lazy (runStateT, liftIO, gets, get, put, mo
 --------------------------------------------------------------------------------
 import           Plugin
 import           Walnut
+import           Protocol.Message
+import           Protocol.Protocol
 
 
 
@@ -35,8 +37,8 @@ main =
                 publish  <- gets statePublish
                 plugins  <- gets statePlugins
                 message  <- lift (recv listen)
-                let reply = maybe [] (`runPlugins` plugins) (unpackMessage message)
+                let reply = maybe [] (`runPlugins` plugins) (debed message)
 
                 flip (>>) loop $ lift (
                     forM_ reply $ \r ->
-                        send publish (packMessage r))
+                        send publish (embed r))
