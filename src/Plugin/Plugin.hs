@@ -57,6 +57,18 @@ unpackMessage = (check <$>) . either (const Nothing) Just . decode
                 , messageData = C.unpack d
                 }
 
+        {-
+         - The data part of any message is expected to be just that, data. So
+         - to handle any other message formats we'll just ignore the message
+         - sent and throw out an error instead.
+         -}
+        check _ = Message
+            { messageFrom = "walnut"
+            , messageTo   = "*"
+            , messageTag  = "error"
+            , messageData = "Malformed message."
+            }
+
 {-
  - When a plugin wants to process a message, it works with this very
  - basic message format. The message data might be a more complicated

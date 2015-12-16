@@ -1,3 +1,3 @@
 .PHONY: net
 net:
-	crystal build src/net.cr
+	crystal build --release src/net.cr
