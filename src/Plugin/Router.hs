@@ -1,16 +1,11 @@
-module Plugin.Walnut
-    ( forward
-    , status
+module Plugin.Router
+    ( router
     ) where
 
 --------------------------------------------------------------------------------
 import           Plugin.Plugin
+import           Protocol.Command
 
 --------------------------------------------------------------------------------
-forward :: Callback
-forward = Just
-
-status :: Callback
-status m@Message{..}
-    | messageTag == "status" = Just m
-    | otherwise              = Nothing
+router :: Callback
+router = Just

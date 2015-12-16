@@ -1,19 +1,16 @@
 module Plugin
-    ( module IRC
-    , module Walnut
-    , module Plugin.Plugin
+    ( module Plugin.Plugin
     , plugins
     ) where
 
 --------------------------------------------------------------------------------
 import           Plugin.Plugin
-import qualified Plugin.IRC    as IRC
 import qualified Plugin.Walnut as Walnut
-
-
+import qualified Plugin.Router as Router
 
 --------------------------------------------------------------------------------
 plugins =
-    [ ("WAL.FORWARD", Walnut.forward)
-    , ("WAL.STATUS",  Walnut.status)
+    [ ("walnut.forward", Walnut.forward)
+    , ("walnut.status",  Walnut.status)
+    , ("walnut.router",  Router.router)
     ]
