@@ -2,9 +2,12 @@ module Protocol.Command
     ( Command(..)
     , embed
     , debed
+    , findCommand
     ) where
 
 --------------------------------------------------------------------------------
+import qualified Data.Text as T
+import           Data.Text.Encoding       (decodeUtf8', encodeUtf8)
 import           Data.Serialize
 import           Data.MessagePack
 import qualified Data.ByteString.Char8 as B
@@ -37,3 +40,18 @@ instance Transportable Command where
                     { commandMessage = message
                     , commandList    = map (\(ObjectString s) -> s) commands
                     }
+
+
+findCommand :: B.ByteString -> Maybe Command
+findCommand (decodeUtf8' -> Left _) = Nothing
+findCommand (decodeUtf8' -> Right line)
+    | T.head line /= '.' = Nothing
+    | otherwise = do
+        pure Command
+            { commandMessage = B.pack ""
+            , commandList = commands
+            }
+
+        where
+            pipes    = T.splitOn "|" line
+            commands = map (encodeUtf8 . T.strip) pipes
