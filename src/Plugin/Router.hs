@@ -18,8 +18,8 @@ router m@Message{..}
         message <- (debed messageData) :: Maybe Chat
         command <- (findCommand . chatLine) message
         pure Message
-            { messageTo   = "router"
-            , messageFrom = "*"
+            { messageTo   = "*"
+            , messageFrom = "router"
             , messageTag  = "command"
             , messageData = embed command { commandMessage = messageData }
             }
