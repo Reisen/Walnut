@@ -13,4 +13,5 @@ plugins =
     [ ("walnut.forward", Walnut.forward)
     , ("walnut.status",  Walnut.status)
     , ("walnut.router",  Router.router)
+    , ("walnut.chain",   Router.chain)
     ]

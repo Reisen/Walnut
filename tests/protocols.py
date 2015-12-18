@@ -23,16 +23,38 @@ def test_command():
         ])
     ]))
 
-    print('Output:')
-    result = m.unpackb(pull.recv())
-    embed  = m.unpackb(result[-1])
-    print('Result: ', result)
-    print('Embed: ', embed)
+    # Ignore first response. It will be a forwarded message.
+    pull.recv()
 
-    command = m.unpackb(pull.recv())
-    cmdlist = m.unpackb(command[-1])
+    # Unpack command response.
+    message = m.unpackb(pull.recv())
+    command = m.unpackb(message[-1])
+    cmdlist = command[-1]
+    print('Message: ', message)
     print('Command: ', command)
-    print('Command List: ', cmdlist)
+    print('Cmdlist: ', cmdlist)
+    print()
+
+    # Send response for testing.
+    cmdlist[0] = 'Awesome Plugin!'
+    push.send(m.packb([
+        b'awesome_plugin',
+        b'router',
+        b'response',
+        m.packb(command)
+    ]))
+
+    # Ignore second response. Forwarded message.
+    pull.recv()
+
+    # View following response.
+    message = m.unpackb(pull.recv())
+    command = m.unpackb(message[-1])
+    cmdlist = command[-1]
+    print('Message: ', message)
+    print('Command: ', command)
+    print('Cmdlist: ', cmdlist)
+    print()
 
 
 test_command()

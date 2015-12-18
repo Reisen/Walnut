@@ -1,5 +1,6 @@
 module Plugin.Router
     ( router
+    , chain
     ) where
 
 --------------------------------------------------------------------------------
@@ -22,3 +23,31 @@ router m@Message{..}
             , messageTag  = "command"
             , messageData = embed command { commandMessage = messageData }
             }
+
+
+chain :: Callback
+chain m@Message{..}
+    | messageTag /= "response" = Nothing
+    | otherwise = do
+        command <- (debed messageData) :: Maybe Command
+        message <- (debed . commandMessage) command :: Maybe Chat
+        case length (commandList command) of
+            0 -> Nothing
+            1 -> pure Message
+                { messageTo   = "protocol." ++ (chatProtocol message)
+                , messageFrom = "command"
+                , messageTag  = "message"
+                , messageData = embed $ message
+                    { chatFrom = chatTo message
+                    , chatTo   = chatFrom message
+                    , chatLine = head (commandList command)
+                    }
+                }
+            _ -> let list = commandList command in pure Message
+                { messageTo   = "*"
+                , messageFrom = "router"
+                , messageTag  = "command"
+                , messageData = embed $ command
+                    { commandList = B.concat [(head . tail) list, " ", head list] : drop 2 list }
+                }
+
