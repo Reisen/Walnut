@@ -3,11 +3,11 @@ module Walnut
     , StateW(..)
     ) where
 
+
 --------------------------------------------------------------------------------
 import           Plugin
 import           Nanomsg                  (Socket, Pub, Pull)
 import           Control.Monad.State.Lazy (StateT)
-
 
 
 --------------------------------------------------------------------------------

@@ -4,12 +4,14 @@ module Protocol.Message
     , debed
     ) where
 
+
 --------------------------------------------------------------------------------
 import           Data.Serialize
 import           Data.MessagePack
 import qualified Data.ByteString.Char8 as B
 
 import           Protocol.Protocol
+
 
 --------------------------------------------------------------------------------
 data Message = Message

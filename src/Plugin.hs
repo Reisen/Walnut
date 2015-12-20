@@ -3,10 +3,12 @@ module Plugin
     , plugins
     ) where
 
+
 --------------------------------------------------------------------------------
 import           Plugin.Plugin
 import qualified Plugin.Walnut as Walnut
 import qualified Plugin.Router as Router
+
 
 --------------------------------------------------------------------------------
 plugins =

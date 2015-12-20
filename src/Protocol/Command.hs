@@ -5,6 +5,7 @@ module Protocol.Command
     , findCommand
     ) where
 
+
 --------------------------------------------------------------------------------
 import qualified Data.Text as T
 import           Data.Text.Encoding       (decodeUtf8', encodeUtf8)
@@ -13,6 +14,7 @@ import           Data.MessagePack
 import qualified Data.ByteString.Char8 as B
 
 import           Protocol.Protocol
+
 
 --------------------------------------------------------------------------------
 data Command = Command

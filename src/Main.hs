@@ -1,5 +1,6 @@
 module Main where
 
+
 --------------------------------------------------------------------------------
 import           Nanomsg
 import           Data.Maybe               (fromMaybe)
@@ -9,12 +10,10 @@ import           Control.Concurrent       (threadDelay)
 import qualified Data.ByteString.Char8    as C
 import           Control.Monad.State.Lazy (runStateT, liftIO, gets, get, put, modify, lift)
 
---------------------------------------------------------------------------------
 import           Plugin
 import           Walnut
 import           Protocol.Message
 import           Protocol.Protocol
-
 
 
 --------------------------------------------------------------------------------

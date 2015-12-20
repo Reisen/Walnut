@@ -3,12 +3,15 @@ module Plugin.Walnut
     , status
     ) where
 
+
 --------------------------------------------------------------------------------
 import           Plugin.Plugin
+
 
 --------------------------------------------------------------------------------
 forward :: Callback
 forward = Just
+
 
 status :: Callback
 status m@Message{..}

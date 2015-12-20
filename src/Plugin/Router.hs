@@ -3,12 +3,14 @@ module Plugin.Router
     , chain
     ) where
 
+
 --------------------------------------------------------------------------------
 import qualified Data.ByteString.Char8 as B
 
 import           Plugin.Plugin
 import           Protocol.Command
 import           Protocol.Chat
+
 
 --------------------------------------------------------------------------------
 router :: Callback

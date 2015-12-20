@@ -5,6 +5,7 @@ module Plugin.Plugin
     , runPlugins
     ) where
 
+
 --------------------------------------------------------------------------------
 import           Data.Maybe               (mapMaybe)
 import           Data.Serialize
@@ -13,8 +14,10 @@ import qualified Data.ByteString.Char8 as C
 
 import           Protocol.Message
 
+
 --------------------------------------------------------------------------------
 type Callback = Message -> Maybe Message
+
 
 data Plugin = Plugin
     { pluginName :: String
@@ -22,6 +25,5 @@ data Plugin = Plugin
     }
 
 
---------------------------------------------------------------------------------
 runPlugins :: Message -> [Plugin] -> [Message]
 runPlugins v = mapMaybe $ ($ v) . pluginHook
