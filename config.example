@@ -1,0 +1,23 @@
+[
+    Server {
+        server  = "irc.example.com",
+        port    = 6667
+        nick    = "walnut",
+        ssl     = False,
+        pass    = Just "password",
+        chan    = [
+            "#channelA",
+            "#channelB",
+            "#channelC"
+        ]
+    },
+
+    Server {
+        server  = "ssl.example.com",
+        port    = 7000,
+        nick    = "walnut",
+        ssl     = True,
+        pass    = Nothing,
+        chan    = []
+    }
+]
