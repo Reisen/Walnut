@@ -19,14 +19,14 @@ import           Protocol.Protocol
 --------------------------------------------------------------------------------
 main :: IO ((), StateW)
 main =
-    withSocket Pub $ \s ->
-    withSocket Pull $ \p -> do
-        bind s "tcp://*:5005"
-        bind p "tcp://*:5006"
+    withSocket Pub $ \push ->
+    withSocket Pull $ \pull -> do
+        bind push "tcp://*:5005"
+        bind pull "tcp://*:5006"
         runStateT loop StateW
             { statePlugins = map (uncurry Plugin) plugins
-            , statePublish = s
-            , stateListen  = p
+            , statePublish = push
+            , stateListen  = pull
             }
 
         where

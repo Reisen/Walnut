@@ -3,6 +3,7 @@ module Main where
 
 --------------------------------------------------------------------------------
 import           Nanomsg
+import           Data.List                (find)
 import           Data.Maybe               (maybe)
 import           Text.Printf              (printf)
 import           Control.Monad
@@ -12,7 +13,8 @@ import qualified Network.IRC           as IRC
 import           Network.Connection
 import qualified Data.ByteString.Char8 as B
 
-import qualified Protocol.Message
+import           Protocol.Chat
+import           Protocol.Message
 
 
 --------------------------------------------------------------------------------
@@ -45,6 +47,7 @@ loop configs =
     withSocket Push $ \push -> do
         connect push "tcp://127.0.0.1:5006"
         connect pull "tcp://127.0.0.1:5005"
+        subscribe pull ""
 
         -- Initialize Connections
         networks <- forM configs $ \s -> do
@@ -78,12 +81,42 @@ loop configs =
                 case message of
                     "PING"    -> handlePing n line
                     "001"     -> handleJoin n line
+                    "PRIVMSG" -> do
+                        let chat = embed Chat
+                             { chatProtocol = "irc"
+                             , chatFrom     = head (IRC.msg_params line)
+                             , chatTo       = "walnut"
+                             , chatLine     = (head . tail) (IRC.msg_params line)
+                             , chatMeta     = (B.pack . server . config) n
+                             }
+
+                            prot = embed Message
+                             { messageFrom = "protocol.irc"
+                             , messageTo   = "*"
+                             , messageTag  = "message"
+                             , messageData = chat
+                             }
+
+                        send push prot
+
                     otherwise -> pure ()
 
         -- Handle Nanomsg messaging.
         forever $ do
-            threadDelay 1000000
+            message <- recv pull
+            let line = do
+                 m@Message{..} <- debed message
+                 if messageTag == "message" && messageTo == "protocol.irc"
+                 then debed messageData
+                 else Nothing
 
+            case line of
+                Nothing       -> pure ()
+                Just Chat{..} ->
+                    maybe
+                        (pure())
+                        (\conn -> connectionPut (network conn) . B.pack $ printf "PRIVMSG %s :%s\n" (B.unpack chatFrom) (B.unpack chatLine))
+                        (find ((chatMeta==) . B.pack . server . config) networks)
 
 --------------------------------------------------------------------------------
 handlePing :: Conn -> IRC.Message -> IO ()

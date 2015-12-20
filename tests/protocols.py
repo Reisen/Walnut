@@ -16,10 +16,10 @@ def test_command():
         b'message',
         m.packb([
             b'irc',
-            b'Nick',
-            b'Channel',
-            b'.commandA foo | .commandB bar | .commandA baz',
-            b'irc.network.com'
+            b'GayMuscle',
+            b'#none',
+            b'.commandA foo',
+            b'irc.neetlife.co.uk'
         ])
     ]))
 
@@ -36,7 +36,7 @@ def test_command():
     print()
 
     # Send response for testing.
-    cmdlist[0] = 'Awesome Plugin!'
+    cmdlist[0] = 'Holy Shit What the Fuck!'
     push.send(m.packb([
         b'awesome_plugin',
         b'router',
