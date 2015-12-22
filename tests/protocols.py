@@ -18,7 +18,7 @@ def test_command():
             b'irc',
             b'GayMuscle',
             b'#none',
-            b'.commandA foo',
+            b'.commandA foo | .commandA | .commandA bar',
             b'irc.neetlife.co.uk'
         ])
     ]))
