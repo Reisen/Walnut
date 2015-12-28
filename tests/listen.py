@@ -10,6 +10,8 @@ def test_listen():
     pull.connect('tcp://127.0.0.1:5005')
     pull.set_string_option(n.SUB, n.SUB_SUBSCRIBE, b'')
 
-    print(pull.recv())
+    while True:
+        message = m.unpackb(pull.recv())
+        print(message)
 
 test_listen()

@@ -4,7 +4,7 @@ module Main where
 --------------------------------------------------------------------------------
 import           Nanomsg
 import           Data.List                (find)
-import           Data.Maybe               (maybe)
+import           Data.Maybe               (maybe, isJust)
 import           Text.Printf              (printf)
 import           Control.Monad
 import           Control.Concurrent
@@ -81,23 +81,20 @@ loop configs =
                 case message of
                     "PING"    -> handlePing n line
                     "001"     -> handleJoin n line
-                    "PRIVMSG" -> do
-                        let chat = embed Chat
-                             { chatProtocol = "irc"
-                             , chatFrom     = head (IRC.msg_params line)
-                             , chatTo       = "walnut"
-                             , chatLine     = (head . tail) (IRC.msg_params line)
-                             , chatMeta     = (B.pack . server . config) n
-                             }
-
-                            prot = embed Message
-                             { messageFrom = "protocol.irc"
-                             , messageTo   = "*"
-                             , messageTag  = "message"
-                             , messageData = chat
-                             }
-
-                        send push prot
+                    "PRIVMSG"  | isJust (IRC.msg_prefix line) -> do
+                        print (IRC.msg_prefix line)
+                        send push $ embed Message
+                            { messageFrom = "protocol.irc"
+                            , messageTo   = "*"
+                            , messageTag  = "message"
+                            , messageData = embed Chat
+                               { chatProtocol = "irc"
+                               , chatFrom     = head (IRC.msg_params line)
+                               , chatTo       = "walnut"
+                               , chatLine     = (head . tail) (IRC.msg_params line)
+                               , chatMeta     = (B.pack . server . config) n
+                               }
+                            }
 
                     otherwise -> pure ()
 
@@ -115,7 +112,7 @@ loop configs =
                 Just Chat{..} ->
                     maybe
                         (pure())
-                        (\conn -> connectionPut (network conn) . B.pack $ printf "PRIVMSG %s :%s\n" (B.unpack chatFrom) (B.unpack chatLine))
+                        (\conn -> connectionPut (network conn) . B.pack $ printf "PRIVMSG %s :%s\n" (B.unpack chatTo) (B.unpack chatLine))
                         (find ((chatMeta==) . B.pack . server . config) networks)
 
 --------------------------------------------------------------------------------

@@ -42,6 +42,7 @@ instance Transportable Command where
                     { commandMessage = message
                     , commandList    = map (\(ObjectString s) -> s) commands
                     }
+            check _ = Nothing
 
 
 findCommand :: B.ByteString -> Maybe Command
