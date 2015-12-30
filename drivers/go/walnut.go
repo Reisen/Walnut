@@ -38,15 +38,15 @@ func make_context() Context {
     }
 }
 
-func (c Context) register_message(f func(Message) string) {
+func (c *Context) register_message(f func(Message) string) {
     c.messages = append(c.messages, f)
 }
 
-func (c Context) register_command(cmd string, f func(Command) string) {
+func (c *Context) register_command(cmd string, f func(Command) string) {
     c.commands[cmd] = f
 }
 
-func (c Context) run(name string) {
+func (c *Context) run(name string) {
     push, _ := push.NewSocket()
     push.AddTransport(tcp.NewTransport())
     push.Listen("tcp://127.0.0.1:5006")
@@ -68,16 +68,10 @@ func (c Context) run(name string) {
         if string(protocol[2]) == "message" {
             fmt.Printf("Message\n")
             var message [5][]byte
-            err := msgpack.Unmarshal(protocol[3], &message)
-            if err != nil {
-                fmt.Printf("Fuck\n")
-            } else {
-                fmt.Printf("Nice\n")
-            }
+            msgpack.Unmarshal(protocol[3], &message)
 
             fmt.Printf("Length: %d\n", len(c.messages))
             for _, f := range c.messages {
-                fmt.Printf("Calling\n")
                 result := f(Message {
                     string(message[0]),
                     string(message[1]),
@@ -86,7 +80,28 @@ func (c Context) run(name string) {
                     string(message[4]),
                 })
 
-                fmt.Printf("%s\n", result)
+                if result != "" {
+                    packed, _ := msgpack.Marshal([][]byte {
+                        message[0],
+                        message[2],
+                        message[1],
+                        []byte(result),
+                        message[4],
+                    })
+
+                    output, _ := msgpack.Marshal([][]byte {
+                        []byte(name),
+                        []byte("protocol." + string(message[0])),
+                        []byte("message"),
+                        packed,
+                    })
+
+                    fmt.Printf("Sending %s\n", output)
+                    err := push.Send(output)
+                    if err != nil {
+                        fmt.Printf("Shit\n")
+                    }
+                }
             }
         }
 
