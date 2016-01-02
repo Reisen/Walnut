@@ -27,22 +27,22 @@ type Context struct {
     commands map[string]func(Command)string
 }
 
-func make_context() Context {
+func MakeContext() Context {
     return Context {
         messages: make([]func(Message)string, 0),
         commands: make(map[string]func(Command)string),
     }
 }
 
-func (c *Context) register_message(f func(Message) string) {
+func (c *Context) RegisterMessage(f func(Message) string) {
     c.messages = append(c.messages, f)
 }
 
-func (c *Context) register_command(cmd string, f func(Command) string) {
+func (c *Context) RegisterCommand(cmd string, f func(Command) string) {
     c.commands[cmd] = f
 }
 
-func (c *Context) run(name string) {
+func (c *Context) Run(name string) {
     push, _ := push.NewSocket()
     push.AddTransport(tcp.NewTransport())
     push.Dial("tcp://127.0.0.1:5006")
