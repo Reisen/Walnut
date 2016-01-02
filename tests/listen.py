@@ -13,5 +13,7 @@ def test_listen():
     while True:
         message = m.unpackb(pull.recv())
         print(message)
+        print(m.unpackb(message[-1]))
+        print()
 
 test_listen()

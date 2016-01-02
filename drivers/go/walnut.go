@@ -1,7 +1,8 @@
 package main
 
 import (
-    "fmt"
+    //"fmt"
+    "strings"
     "github.com/gdamore/mangos"
     "github.com/gdamore/mangos/protocol/push"
     "github.com/gdamore/mangos/transport/tcp"
@@ -21,8 +22,8 @@ type Message struct {
 
 /* -------------------------------------------------------------------------- */
 type Command struct {
-    Message []byte
-    Commands []string
+    Command string
+    Text string
 }
 
 /* -------------------------------------------------------------------------- */
@@ -49,7 +50,7 @@ func (c *Context) register_command(cmd string, f func(Command) string) {
 func (c *Context) run(name string) {
     push, _ := push.NewSocket()
     push.AddTransport(tcp.NewTransport())
-    push.Listen("tcp://127.0.0.1:5006")
+    push.Dial("tcp://127.0.0.1:5006")
 
     pull, _ := sub.NewSocket()
     pull.AddTransport(tcp.NewTransport())
@@ -66,11 +67,9 @@ func (c *Context) run(name string) {
         }
 
         if string(protocol[2]) == "message" {
-            fmt.Printf("Message\n")
             var message [5][]byte
             msgpack.Unmarshal(protocol[3], &message)
 
-            fmt.Printf("Length: %d\n", len(c.messages))
             for _, f := range c.messages {
                 result := f(Message {
                     string(message[0]),
@@ -81,31 +80,58 @@ func (c *Context) run(name string) {
                 })
 
                 if result != "" {
-                    packed, _ := msgpack.Marshal([][]byte {
-                        message[0],
-                        message[2],
-                        message[1],
-                        []byte(result),
-                        message[4],
+                    packed, _ := msgpack.Marshal([5]string {
+                        string(message[0]),
+                        string(message[2]),
+                        string(message[1]),
+                        result,
+                        string(message[4]),
                     })
 
-                    output, _ := msgpack.Marshal([][]byte {
-                        []byte(name),
-                        []byte("protocol." + string(message[0])),
-                        []byte("message"),
-                        packed,
+                    output, _ := msgpack.Marshal([4]string {
+                        name,
+                        "protocol." + string(message[0]),
+                        "message",
+                        string(packed),
                     })
 
-                    fmt.Printf("Sending %s\n", output)
-                    err := push.Send(output)
-                    if err != nil {
-                        fmt.Printf("Shit\n")
-                    }
+                    push.Send(output)
                 }
             }
         }
 
         if string(protocol[2]) == "command" {
+            var message [2]interface{}
+            msgpack.Unmarshal(protocol[3], &message)
+
+            orig, _ := message[0].(string)
+            line, _ := message[1].([]interface{})[0].(string)
+            command := strings.SplitN(line, " ", 2)
+            f := c.commands[strings.TrimPrefix(command[0], ".")]
+
+            result := f(Command {
+                strings.TrimPrefix(command[0], "."),
+                command[1],
+            })
+
+            if result != "" {
+                new_messages := message[1].([]interface{})
+                new_messages = append([]interface{}{result}, new_messages[1:]...)
+
+                packed, _ := msgpack.Marshal([2]interface{} {
+                    orig,
+                    new_messages,
+                })
+
+                output, _ := msgpack.Marshal([4]string {
+                        name,
+                        string(protocol[0]),
+                        "response",
+                        string(packed),
+                })
+
+                push.Send(output)
+            }
         }
     }
 }
@@ -119,7 +145,7 @@ func main() {
     })
 
     context.register_command("hello", func (m Command) string {
-        return "Really!"
+        return "Really?"
     })
 
     context.run("hello2")
