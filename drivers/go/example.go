@@ -3,13 +3,13 @@ package main
 import "walnut"
 
 func main() {
-    context := MakeContext()
+    context := walnut.MakeContext()
 
-    context.RegisterMessage(func (m Message) string {
+    context.RegisterMessage(func (m walnut.Message) string {
         return "Really!"
     })
 
-    context.RegisterCommand("hello", func (m Command) string {
+    context.RegisterCommand("hello", func (m walnut.Command) string {
         return "Really?"
     })
 
