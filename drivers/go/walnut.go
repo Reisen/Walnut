@@ -20,6 +20,7 @@ type Message struct {
 type Command struct {
     Command string
     Text string
+    Message Message
 }
 
 type Context struct {
@@ -99,6 +100,9 @@ func (c *Context) Run(name string) {
             var message [2]interface{}
             msgpack.Unmarshal(protocol[3], &message)
 
+            var embed [5][]byte
+            msgpack.Unmarshal([]byte(message[0].(string)), &embed)
+
             orig, _ := message[0].(string)
             line, _ := message[1].([]interface{})[0].(string)
             command := strings.SplitN(line, " ", 2)
@@ -107,6 +111,13 @@ func (c *Context) Run(name string) {
             result := f(Command {
                 strings.TrimPrefix(command[0], "."),
                 command[1],
+                Message {
+                    string(embed[0]),
+                    string(embed[1]),
+                    string(embed[2]),
+                    string(embed[3]),
+                    string(embed[4]),
+                },
             })
 
             if result != "" {
