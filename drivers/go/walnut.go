@@ -1,7 +1,6 @@
-package main
+package walnut
 
 import (
-    //"fmt"
     "strings"
     "github.com/gdamore/mangos"
     "github.com/gdamore/mangos/protocol/push"
@@ -10,8 +9,6 @@ import (
     "gopkg.in/vmihailenco/msgpack.v2"
 )
 
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
 type Message struct {
     Protocol string
     From string
@@ -20,13 +17,11 @@ type Message struct {
     Meta string
 }
 
-/* -------------------------------------------------------------------------- */
 type Command struct {
     Command string
     Text string
 }
 
-/* -------------------------------------------------------------------------- */
 type Context struct {
     messages []func(Message)string
     commands map[string]func(Command)string
@@ -134,19 +129,4 @@ func (c *Context) run(name string) {
             }
         }
     }
-}
-
-/* -------------------------------------------------------------------------- */
-func main() {
-    context := make_context()
-
-    context.register_message(func (m Message) string {
-        return "Really!"
-    })
-
-    context.register_command("hello", func (m Command) string {
-        return "Really?"
-    })
-
-    context.run("hello2")
 }
