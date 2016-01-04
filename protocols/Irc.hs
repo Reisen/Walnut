@@ -37,7 +37,7 @@ data Conn = Conn
 
 main :: IO ()
 main = do
-    file <- readFile "config"
+    file <- readFile "Irc.config"
     loop (read file :: [Server])
 
 
