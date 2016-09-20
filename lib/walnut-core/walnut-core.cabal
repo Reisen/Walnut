@@ -14,8 +14,15 @@ cabal-version:          >=1.10
 
 library
   hs-source-dirs:       src
-  exposed-modules:      Walnut
   default-language:     Haskell2010
   ghc-options:          -Wall -Werror
+  exposed-modules:      Walnut
+
+  other-modules:        Walnut.Internal.Sources
+                      , Walnut.Internal.Mappers
 
   build-depends:        base
+                      , conduit
+                      , conduit-extra
+                      , mtl
+                      , transformers
