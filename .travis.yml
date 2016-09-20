@@ -10,6 +10,7 @@ matrix:
   include:
     - env: BUILD=stack ARGS="--resolver lts-7"
       compiler: ": stack LTS-7"
+      addons: {apt: {packages: [ghc-8.0.1], sources: [hvr-ghc]}}
 
     - env: BUILD=stack ARGS="--resolver lts-7"
       compiler: ": stack LTS-7 OSX"
@@ -17,7 +18,6 @@ matrix:
 
 before_install:
   - unset CC                # Using compiler above sets CC to an invalid value, so unset it
-  - CABALARGS=""            # We want to always allow newer versions of packages when building on GHC HEAD
   - mkdir -p ~/.local/bin   # For locally installed binaries from stack
   - export PATH=$HOME/.local/bin:$HOME/.cabal/bin:$PATH
   - |
