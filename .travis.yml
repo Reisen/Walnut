@@ -19,7 +19,7 @@ before_install:
   - unset CC                # Using compiler above sets CC to an invalid value, so unset it
   - CABALARGS=""            # We want to always allow newer versions of packages when building on GHC HEAD
   - mkdir -p ~/.local/bin   # For locally installed binaries from stack
-  - export $HOME/.local/bin:$HOME/.cabal/bin:$PATH
+  - export PATH=$HOME/.local/bin:$HOME/.cabal/bin:$PATH
   - |
     if [ `uname` = "Darwin" ]; then
       travis_retry curl --insecure -L https://www.stackage.org/stack/osx-x86_64 | tar xz --strip-components=1 --include '*/stack' -C ~/.local/bin
