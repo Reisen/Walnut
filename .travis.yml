@@ -9,10 +9,10 @@ cache:                      # Caching so the next build will be fast too.
 matrix:
   include:
     - env: BUILD=stack ARGS="--resolver lts-7"
-      compiler: "Stack LTS-7"
+      compiler: ": stack LTS-7"
 
     - env: BUILD=stack ARGS="--resolver lts-7"
-      compiler: "Stack LTS-7 OSX"
+      compiler: ": stack LTS-7 OSX"
       os: osx
 
 before_install:
