@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+set -ev
+if [ -f configure.ac ]; then autoreconf -i; fi
+stack --no-terminal --install-ghc $ARGS test --bench --only-dependencies
