@@ -9,14 +9,6 @@ cache:                      # Caching so the next build will be fast too.
 matrix:
   include:
     - env: ARGS="--resolver lts-7"
-
-
-
-
-
-matrix:
-  include:
-    - env: ARGS="--resolver lts-7"
       compiler: "stack lts-7"
       addons: {apt: {packages: [ghc-8.0.1], sources: [hvr-ghc]}}
 
