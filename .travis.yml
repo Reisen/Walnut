@@ -9,11 +9,11 @@ cache:                      # Caching so the next build will be fast too.
 matrix:
   include:
     - env: ARGS="--resolver lts-7"
-      compiler: "stack lts-7"
+      compiler: "# stack-lts-7"
       addons: {apt: {packages: [ghc-8.0.1], sources: [hvr-ghc]}}
 
     - env: ARGS="--resolver lts-7"
-      compiler: "stack lts-7"
+      compiler: "# stack-lts-7-osx"
       os: osx
 
 before_install:
@@ -29,6 +29,7 @@ before_install:
     else
       travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C $HOME/.local/bin '*/stack'
     fi
+    if [ "$CABALVER" != "1.16" ]; then echo 'jobs: $ncpus' >> $HOME/.cabal/config fi
   - export PACKAGES=$(stack --install-ghc query locals | grep '^ *path' | sed 's@^ *path:@@')
 
 install: ./.travis.install
