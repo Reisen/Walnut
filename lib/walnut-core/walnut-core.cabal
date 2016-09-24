@@ -17,9 +17,19 @@ library
   default-language:     Haskell2010
   ghc-options:          -Wall -Werror
 
-  default-extensions:   TypeFamilies
+  default-extensions:   BangPatterns
+                      , FlexibleContexts
+                      , GADTs
+                      , GeneralizedNewtypeDeriving
+                      , LambdaCase
                       , NoImplicitPrelude
                       , OverloadedStrings
+                      , PatternSynonyms
+                      , RecordWildCards
+                      , ScopedTypeVariables
+                      , TupleSections
+                      , TypeFamilies
+                      , ViewPatterns
 
   exposed-modules:      Walnut
 
@@ -34,3 +44,4 @@ library
                       , protolude
                       , text
                       , transformers
+                      , zeromq4-haskell

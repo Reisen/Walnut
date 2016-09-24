@@ -1,9 +1,12 @@
 module Walnut.Sources where
 
-import           Protolude
-import qualified Data.Conduit        as C
-import qualified Data.Text           as T
+import           Walnut.Internal.Types
 
-receive :: C.Source m T.Text
-receive
+import           Protolude
+import qualified Data.Conduit as C
+
+zmqMessages
+  :: C.Source m Message
+
+zmqMessages
   = undefined

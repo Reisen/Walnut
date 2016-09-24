@@ -1,7 +1,7 @@
 module Walnut
-  ( module Walnut.Internal.Sources
-  , module Walnut.Internal.Mappers
+  ( module Walnut.Sources
+  , module Walnut.Mappers
   ) where
 
-import Walnut.Internal.Sources
-import Walnut.Internal.Mappers
+import Walnut.Sources
+import Walnut.Mappers

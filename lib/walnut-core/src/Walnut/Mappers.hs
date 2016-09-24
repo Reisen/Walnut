@@ -1,3 +1,3 @@
-module Walnut.Internal.Mappers where
+module Walnut.Mappers where
 
 data Mapper
