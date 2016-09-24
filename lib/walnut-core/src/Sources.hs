@@ -1,4 +1,4 @@
-module Walnut.Internal.Sources where
+module Walnut.Sources where
 
 import           Protolude
 import qualified Data.Conduit        as C

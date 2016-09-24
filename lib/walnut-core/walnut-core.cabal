@@ -23,8 +23,9 @@ library
 
   exposed-modules:      Walnut
 
-  other-modules:        Walnut.Internal.Sources
-                      , Walnut.Internal.Mappers
+  other-modules:        Walnut.Sources
+                      , Walnut.Mappers
+                      , Walnut.Internal.Types
 
   build-depends:        base
                       , conduit
