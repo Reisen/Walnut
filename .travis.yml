@@ -23,11 +23,12 @@ matrix:
       os: osx
 
 before_install:
+  - export PATH=$PWD/zeromq-4.1.5/.libs:$PATH
   - |
     wget https://github.com/zeromq/zeromq4-1/releases/download/v4.1.5/zeromq-4.1.5.tar.gz
     tar -zxf zeromq-4.1.5.tar.gz
     pushd zeromq-4.1.5.tar.gz && ./configure && make && popd
-    export PATH=$PWD/zeromq-4.1.5/.libs:$PATH
+    ls zeromq-4.1.5/.libs
     unset CC
     CABALARGS=""
     if [ "x$GHCVER" = "xhead" ]; then CABALARGS=--allow-newer; fi
