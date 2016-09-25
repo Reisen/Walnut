@@ -10,7 +10,14 @@ matrix:
   include:
     - env: ARGS="--resolver lts-7"
       compiler: "# stack-lts-7"
-      addons: {apt: {packages: [ghc-8.0.1], sources: [hvr-ghc]}}
+      addons:
+        apt:
+          packages:
+            - 'ghc-8.0.1'
+            - 'libzmq5'
+
+          sources:
+            - 'hvr-ghc'
 
     - env: ARGS="--resolver lts-7"
       compiler: "# stack-lts-7-osx"
