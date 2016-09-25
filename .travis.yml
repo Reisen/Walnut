@@ -27,7 +27,7 @@ before_install:
   - |
     wget https://github.com/zeromq/zeromq4-1/releases/download/v4.1.5/zeromq-4.1.5.tar.gz
     tar -zxf zeromq-4.1.5.tar.gz
-    pushd zeromq-4.1.5.tar.gz && ./configure && make && popd
+    pushd zeromq-4.1.5 && ./configure && make && popd
     ls zeromq-4.1.5/.libs
     unset CC
     CABALARGS=""
