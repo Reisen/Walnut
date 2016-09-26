@@ -29,6 +29,8 @@ before_install:
     pushd /tmp
     wget https://github.com/zeromq/zeromq4-1/releases/download/v4.1.5/zeromq-4.1.5.tar.gz -O zeromq.tar.gz
     tar -zxf zeromq.tar.gz
+    ls
+    ls zeromq/
     pushd zeromq && ./configure --prefix=/usr && make && make install && popd
     ls zeromq/.libs
     popd
