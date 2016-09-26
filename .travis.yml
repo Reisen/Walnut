@@ -25,17 +25,10 @@ matrix:
 before_install:
   - export PATH=$PWD/zeromq-4.1.5/.libs:$PATH
   - export CC=gcc
-  - |
-    export CC=gcc
-    echo $CC
-    wget https://github.com/zeromq/zeromq4-1/releases/download/v4.1.5/zeromq-4.1.5.tar.gz
-    tar -zxf zeromq-4.1.5.tar.gz
-    ls
-    ls zeromq-4.1.5/
-    pushd zeromq-4.1.5/ && ./configure --prefix=/usr && make && make install && popd
-    ls zeromq/.libs
-    popd
-
+  - wget https://github.com/zeromq/zeromq4-1/releases/download/v4.1.5/zeromq-4.1.5.tar.gz
+  - tar -zxf zeromq-4.1.5.tar.gz
+  - pushd zeromq-4.1.5/ && ./configure && make && popd
+  - ls zeromq/.libs
   - |
     unset CC
     CABALARGS=""
