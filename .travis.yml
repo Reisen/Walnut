@@ -1,6 +1,7 @@
-sudo: false                 # Use new container infrastructure to enable caching
-language: c                 # Choose a lightweight base image; we provide our own build tools.
-cache:                      # Caching so the next build will be fast too.
+sudo: false
+language: c
+
+cache:
   directories:
     - $HOME/.ghc
     - $HOME/.cabal
@@ -8,51 +9,49 @@ cache:                      # Caching so the next build will be fast too.
 
 matrix:
   include:
-    - env: ARGS="--resolver lts-7"
-      compiler: "# stack-lts-7"
-      addons:
-        apt:
-          packages:
-            - 'ghc-8.0.1'
+    - compiler: ": # Stack LTS-7 Linux"
+      env: ARGS="--resolver lts-7"
+      os: linux
 
-          sources:
-            - 'hvr-ghc'
-
-    - env: ARGS="--resolver lts-7"
-      compiler: "# stack-lts-7-osx"
+    - compiler: ": # Stack LTS-7 OSX"
+      env: ARGS="--resolver lts-7"
       os: osx
 
+addons:
+  apt:
+    packages:
+      - libgmp-dev
+
 before_install:
-  - export PATH=$PWD/zeromq-4.1.5/.libs:$PATH
-  - set CC=gcc
-  - |
-    pushd /tmp
-    wget https://github.com/zeromq/zeromq4-1/releases/download/v4.1.5/zeromq-4.1.5.tar.gz -O zeromq.tar.gz
-    tar -zxf zeromq.tar.gz
-    pushd zeromq && ./configure --prefix=/usr && make && make install && popd
-    ls zeromq/.libs
-    popd
+  # Fix the build environment so we can build dependencies with gcc.
+  - mkdir -p $HOME/.local/{bin,lib,share,include}
+  - export CC=gcc
+  - export PATH=$HOME/.local/bin:$PATH
+  - export PKG_CONFIG_PATH=$HOME/.local/lib/pkgconfig:$PKG_CONFIG_PATH
 
-  - |
-    unset CC
-    CABALARGS=""
-    if [ "x$GHCVER" = "xhead" ]; then CABALARGS=--allow-newer; fi
-    export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$HOME/.local/bin:/opt/alex/$ALEXVER/bin:/opt/happy/$HAPPYVER/bin:$HOME/.cabal/bin:$PATH
-    mkdir -p ~/.local/bin
-    if [ `uname` = "Darwin" ]
-    then
-      travis_retry curl --insecure -L https://www.stackage.org/stack/osx-x86_64 | tar xz --strip-components=1 --include '*/stack' -C ~/.local/bin
-    else
-      travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-    fi
-    mkdir -p $HOME/.cabal
-    echo 'remote-repo: hackage.haskell.org:http://hackage.fpcomplete.com/' > $HOME/.cabal/config
-    echo 'remote-repo-cache: $HOME/.cabal/packages' >> $HOME/.cabal/config
-    if [ "$CABALVER" != "1.16" ]
-    then
-      echo 'jobs: $ncpus' >> $HOME/.cabal/config
-    fi
-    PACKAGES=$(stack --install-ghc query locals | grep '^ *path' | sed 's@^ *path:@@')
+  # Install ZMQ
+  - wget https://github.com/zeromq/zeromq4-1/releases/download/v4.1.5/zeromq-4.1.5.tar.gz
+  - tar -zxf zeromq-4.1.5.tar.gz
+  - pushd zeromq-4.1.5/ && ./configure --prefix=$HOME/.local && make install && popd
 
-install: ./.travis.install
-script: ./.travis.script
+  # Install Stack
+  - if [ ! -f "$HOME/.local/bin/stack" ];
+    then
+      STACK_URL="https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64";
+      curl --location "$STACK_URL" > stack.tar.gz;
+      tar --strip-components=1 -zxf stack.tar.gz;
+      mv stack $HOME/.local/bin;
+    fi
+
+install:
+  # Configure if need be.
+  - if [ -f configure.ac ];
+    then
+      autoreconf -i;
+    fi
+
+  # Build.
+  - stack --no-terminal --install-ghc $ARGS test --bench --only-dependencies
+
+script:
+  - stack --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
