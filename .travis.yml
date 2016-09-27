@@ -45,6 +45,8 @@ before_install:
 
 install:
   # Configure if need be.
+  - export PATH=$HOME/.local/bin:$PATH
+  - export PKG_CONFIG_PATH=$HOME/.local/lib/pkgconfig:$PKG_CONFIG_PATH
   - if [ -f configure.ac ];
     then
       autoreconf -i;
@@ -54,4 +56,6 @@ install:
   - stack --no-terminal --install-ghc $ARGS test --bench --only-dependencies
 
 script:
+  - export PATH=$HOME/.local/bin:$PATH
+  - export PKG_CONFIG_PATH=$HOME/.local/lib/pkgconfig:$PKG_CONFIG_PATH
   - stack --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
