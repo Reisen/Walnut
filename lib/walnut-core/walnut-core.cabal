@@ -33,9 +33,10 @@ library
 
   exposed-modules:      Walnut
 
-  other-modules:        Walnut.Sources
+  other-modules:        Walnut.Internal.Types
                       , Walnut.Mappers
-                      , Walnut.Internal.Types
+                      , Walnut.Sources
+                      , Walnut.Sources.ZMQ
 
   build-depends:        base
                       , conduit

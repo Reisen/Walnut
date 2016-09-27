@@ -1,12 +1,5 @@
-module Walnut.Sources where
+module Walnut.Sources
+  ( module Source
+  ) where
 
-import           Walnut.Internal.Types
-
-import           Protolude
-import qualified Data.Conduit as C
-
-zmqMessages
-  :: C.Source m Message
-
-zmqMessages
-  = undefined
+import Walnut.Sources.ZMQ as Source
