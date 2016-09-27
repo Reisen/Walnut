@@ -39,8 +39,8 @@ before_install:
     then
       STACK_URL="https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64";
       curl --location "$STACK_URL" > stack.tar.gz;
-      tar -zxf --strip-components=1;
-      mv stack $HOME/.local/;
+      tar -zxf --strip-components=1 stack.tar.gz;
+      mv stack $HOME/.local/bin;
     fi
 
 install:
