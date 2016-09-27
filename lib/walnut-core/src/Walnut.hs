@@ -1,7 +1,6 @@
 module Walnut
-  ( module Walnut.Sources
-  , module Walnut.Mappers
+  ( module Walnut
   ) where
 
-import Walnut.Sources
-import Walnut.Mappers
+import Walnut.Sources as Walnut
+import Walnut.Mappers as Walnut
