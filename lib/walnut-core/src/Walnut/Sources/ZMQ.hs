@@ -11,6 +11,7 @@ import qualified Control.Concurrent.MVar as M
 import qualified Data.Conduit            as C
 import qualified System.ZMQ4.Monadic     as Z
 
+
 zmqMessages
   :: (MonadIO m)
   => M.MVar Message
@@ -24,14 +25,16 @@ zmqMessages mvar
 
 
 zmqProducer
-  :: IO (M.MVar Message)
+  :: (MonadIO m)
+  => m (M.MVar Message)
 
 zmqProducer
   = Z.runZMQ $ do
-      sock <- Z.socket Z.Pair
+      sock <- Z.socket Z.Pull
       mvar <- liftIO M.newEmptyMVar
+      Z.bind sock "tcp://0.0.0.0:5555"
       _    <- Z.async $ forever $ do
-        message <- undefined <$> Z.receive sock
+        message <- const (Message "" "" "" "") <$> Z.receive sock
         liftIO (putMVar mvar message)
 
       pure mvar

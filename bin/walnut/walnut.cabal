@@ -19,8 +19,9 @@ executable walnut
   ghc-options:          -threaded -rtsopts -with-rtsopts=-N -Wall -Werror
 
   build-depends:        base
-                      , walnut-core
+                      , conduit
                       , protolude
+                      , walnut-core
 
   default-extensions:   BangPatterns
                       , FlexibleContexts
