@@ -11,3 +11,4 @@ packages:
 extra-deps:
     - monad-classes-0.3.1.1
     - peano-0.1.0.1
+    - simpleirc-0.3.1
