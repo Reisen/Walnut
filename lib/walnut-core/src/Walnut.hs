@@ -1,7 +1,10 @@
 module Walnut
-  ( module Walnut.Sources
-  , module Walnut.Mappers
+  ( module Walnut
+  , Message(..)
+  , parseMessage
   ) where
 
-import Walnut.Sources
-import Walnut.Mappers
+import Walnut.Internal.Types
+import Walnut.Mappers as Walnut
+import Walnut.Sink    as Walnut
+import Walnut.Sources as Walnut

@@ -1,21 +1,20 @@
-module Walnut.Mappers where
+module Walnut.Sink
+  ( zmqForward
+  ) where
 
 import           Walnut.Internal.Types
 
 import           Protolude
 import           Control.Monad.IO.Class  (MonadIO)
+import qualified Control.Concurrent.MVar as M
 import qualified Data.Conduit            as C
 import qualified Data.Conduit.List       as CL
 
-mapPlugins
-  :: C.Conduit Message m Message
 
-mapPlugins
-  = undefined
-
-printer
+zmqForward
   :: (MonadIO m)
-  => C.Conduit Message m Message
+  => M.MVar Message
+  -> C.Sink Message m ()
 
-printer
-  = CL.iterM (liftIO . print)
+zmqForward mvar
+  = CL.mapM_ (liftIO . M.putMVar mvar)
