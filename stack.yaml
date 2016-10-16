@@ -4,7 +4,9 @@ flags: {}
 
 packages:
     - bin/walnut
+    - bin/walnut-irc
     - lib/walnut-core
+    - lib/walnut-binary
 
 extra-deps:
     - monad-classes-0.3.1.1

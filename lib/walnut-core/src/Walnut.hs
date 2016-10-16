@@ -2,6 +2,7 @@ module Walnut
   ( module Walnut
   , Message(..)
   , parseMessage
+  , compileMessage
   ) where
 
 import Walnut.Internal.Types

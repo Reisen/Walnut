@@ -1,0 +1,44 @@
+name:                   walnut-irc
+version:                0.1.0.0
+synopsis:               An IRC binary for walnut.
+description:            Please see README.md
+homepage:               https://github.com/Reisen/Walnut#readme
+license:                MIT
+license-file:           LICENSE
+author:                 Reisen
+maintainer:             reisen@morphism.org
+copyright:              2016 Reisen
+category:               Service
+build-type:             Simple
+cabal-version:          >=1.10
+
+executable walnut-irc
+  hs-source-dirs:       src
+  main-is:              Main.hs
+  default-language:     Haskell2010
+  ghc-options:          -threaded -rtsopts -with-rtsopts=-N -Wall -Werror
+
+  build-depends:        base
+                      , bytestring
+                      , htoml
+                      , irc
+                      , protolude
+                      , text
+                      , transformers
+                      , walnut-binary
+                      , walnut-core
+                      , zeromq4-haskell
+
+  default-extensions:   BangPatterns
+                      , FlexibleContexts
+                      , GADTs
+                      , GeneralizedNewtypeDeriving
+                      , LambdaCase
+                      , NoImplicitPrelude
+                      , OverloadedStrings
+                      , PatternSynonyms
+                      , RecordWildCards
+                      , ScopedTypeVariables
+                      , TupleSections
+                      , TypeFamilies
+                      , ViewPatterns
