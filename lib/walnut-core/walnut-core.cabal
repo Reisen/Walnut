@@ -21,6 +21,7 @@ library
 
   other-modules:        Walnut.Internal.Types
                       , Walnut.Mappers
+                      , Walnut.Sink
                       , Walnut.Sources
                       , Walnut.Sources.ZMQ
 
@@ -59,10 +60,13 @@ test-suite walnut-core-tests
   other-modules:        Walnut
                       , Walnut.Internal.Types
                       , Walnut.Mappers
+                      , Walnut.Sink
                       , Walnut.Sources
                       , Walnut.Sources.ZMQ
 
   build-depends:        base
+                      , aeson
+                      , bytestring
                       , conduit
                       , conduit-extra
                       , hspec

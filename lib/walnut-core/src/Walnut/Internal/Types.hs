@@ -53,3 +53,9 @@ parseMessage
   -> Maybe Message
 
 parseMessage = A.decode
+
+compileMessage
+  :: Message
+  -> L.ByteString
+
+compileMessage = A.encode

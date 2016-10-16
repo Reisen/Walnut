@@ -4,6 +4,7 @@ module Walnut
   , parseMessage
   ) where
 
-import Walnut.Sources as Walnut
-import Walnut.Mappers as Walnut
 import Walnut.Internal.Types
+import Walnut.Mappers as Walnut
+import Walnut.Sink    as Walnut
+import Walnut.Sources as Walnut

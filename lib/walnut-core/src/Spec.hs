@@ -15,17 +15,4 @@ main
       describe "Source" $ do
         describe "zmqSource" $ do
           it "can receive a Message object" $ do
-            Z.runZMQ $ Z.async $ do
-              sock <- Z.socket Z.Push
-              Z.connect sock "tcp://0.0.0.0:5555"
-              Z.send sock [] "amazing"
-              pure ()
-
-            runConduit (
-              (zmqProducer >>= zmqMessages) $$
-              (do
-                message <- C.await
-                liftIO (putStrLn "Nice")
-                pure ()))
-
             0 `shouldBe` 0
