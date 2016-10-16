@@ -20,7 +20,7 @@ executable walnut-irc
 
   build-depends:        base
                       , bytestring
-                      , htoml
+                      , connection
                       , irc
                       , protolude
                       , text
